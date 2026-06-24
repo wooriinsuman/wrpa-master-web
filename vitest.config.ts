@@ -2,11 +2,9 @@ import { defineVitestConfig } from '@nuxt/test-utils/config'
 
 export default defineVitestConfig({
   test: {
-    // Allow per-file environment overrides (e.g. // @vitest-environment happy-dom)
-    environmentMatchGlobs: [
-      ['app/composables/useTheme.test.ts', 'happy-dom'],
-    ],
-    // Default to node for proxy/store/nav tests that don't need a DOM
+    // Default to node; DOM-needing tests opt in per-file via
+    // `// @vitest-environment happy-dom` (e.g. useTheme.test.ts).
+    // (Vitest 4 removed `environmentMatchGlobs`; the docblock is the supported path.)
     environment: 'node',
   },
   resolve: {
