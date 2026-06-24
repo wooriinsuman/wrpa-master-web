@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
     method: 'POST', body,
   })
   setCookie(event, 'access_token', res.accessToken, {
-    httpOnly: true, secure: true, sameSite: 'lax', path: '/',
+    httpOnly: true, secure: !import.meta.dev, sameSite: 'lax', path: '/',
   })
   return { ok: true }
 })

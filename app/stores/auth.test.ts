@@ -9,7 +9,7 @@ describe('auth store', () => {
   })
   it('isAuthed is true once user set', () => {
     const s = useAuthStore()
-    s.user = { id: '1', username: 'admin', name: '관리자', roles: ['admin'] } as any
+    s.user = { userId: '1', username: 'admin', roles: ['admin'] }
     expect(s.isAuthed).toBe(true)
   })
 })

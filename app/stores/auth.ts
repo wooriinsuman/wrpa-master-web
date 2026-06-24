@@ -7,7 +7,7 @@ export const useAuthStore = defineStore('auth', {
   getters: { isAuthed: (s) => s.user !== null },
   actions: {
     async fetchMe() {
-      try { this.user = await useApi()('/auth/me') } catch { this.user = null }
+      try { this.user = await $fetch('/api/auth/me') } catch { this.user = null }
     },
     async logout() {
       await $fetch('/api/auth/logout', { method: 'POST' })
