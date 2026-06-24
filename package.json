@@ -12,9 +12,12 @@
     "gen:api": "openapi-typescript ../wrpa-master-v2/api/openapi.yaml -o shared/types/api.d.ts"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/space-grotesk": "^5.2.10",
     "@pinia/nuxt": "^0.11.3",
     "nuxt": "^4.4.8",
     "pinia": "^3.0.4",
+    "pretendard": "^1.3.9",
     "vue": "^3.5.38",
     "vue-router": "^5.1.0"
   },

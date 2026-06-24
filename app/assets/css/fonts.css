@@ -1,1 +1,16 @@
-/* filled in Task 6 */
+/*
+ * app/assets/css/fonts.css — font wiring
+ *
+ * Strategy: import from npm packages directly. Vite resolves relative woff2
+ * paths inside each package and copies assets to the build output.
+ *
+ * - pretendard: static/pretendard.css → font-family: 'Pretendard' (weights 100-900)
+ * - @fontsource/jetbrains-mono: index.css → font-family: 'JetBrains Mono' (weights 400-700)
+ * - @fontsource/space-grotesk: index.css → font-family: 'Space Grotesk' (weights 300-700)
+ *
+ * The font-family names declared in these packages match the --font-* tokens
+ * in tokens.css verbatim ('Pretendard', 'JetBrains Mono', 'Space Grotesk').
+ */
+@import 'pretendard/dist/web/static/pretendard.css';
+@import '@fontsource/jetbrains-mono/index.css';
+@import '@fontsource/space-grotesk/index.css';

@@ -1,1 +1,24 @@
-/* filled in Task 6 */
+/* app/assets/css/tokens.css — DS source of truth */
+:root, :root[data-theme="light"] {
+  --bg:#F4F6F9; --panel:#FFFFFF; --cell:#FFFFFF; --th:#F7F9FC;
+  --ink:#1B2430; --ink-2:#5A6675; --line:#E3E8EF; --nav-active:#EBF1F8;
+  --rim:inset 0 1px 0 rgba(255,255,255,.75);
+  --elev:0 1px 2px rgba(16,24,40,.05),0 10px 26px rgba(16,24,40,.07);
+  --elev-hi:0 3px 8px rgba(16,24,40,.08),0 18px 40px rgba(16,24,40,.15);
+  --run:#2D7DD2; --idle:#8896A6; --fail:#E0533D; --done:#2FA36B;
+  --font-sans:'Pretendard',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-display:'Space Grotesk',sans-serif;
+}
+:root[data-theme="dark"] {
+  --bg:#0E1420; --panel:#161E2B; --cell:#121A27; --th:#1C2636;
+  --ink:#E6ECF3; --ink-2:#93A1B5; --line:#243042; --nav-active:#1E2A3D;
+  --rim:inset 0 1px 0 rgba(255,255,255,.06);
+  --elev:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.5);
+  --elev-hi:0 3px 8px rgba(0,0,0,.45),0 22px 46px rgba(0,0,0,.62);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+*:focus-visible{outline:2px solid var(--run);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
