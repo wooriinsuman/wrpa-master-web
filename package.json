@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "gen:api": "openapi-typescript ../wrpa-master-v2/api/openapi.yaml -o shared/types/api.d.ts"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.11.3",
