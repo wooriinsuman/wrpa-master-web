@@ -114,4 +114,23 @@ describe('useCrudPage', () => {
     expect(ctl.editingId.value).toBe(null)
     expect(pushMock).toHaveBeenCalledWith('수정되었습니다.')
   })
+
+  it('save() toasts the error message and keeps the drawer open when create rejects', async () => {
+    const r = makeResource([])
+    r.create.mockRejectedValue(new Error('서버 오류'))
+    const ctl = await mountWith(r, 't-save-fail')
+    ctl.openCreate()
+    ctl.form.value = { name: 'X' }
+    await ctl.save()
+    expect(pushMock).toHaveBeenCalledWith('서버 오류')
+    expect(ctl.drawerOpen.value).toBe(true)
+  })
+
+  it('remove() toasts the removeFailed message when remove rejects', async () => {
+    const r = makeResource([{ id: '1', name: 'A' }])
+    r.remove.mockRejectedValue(new Error('nope'))
+    const ctl = await mountWith(r, 't-remove-fail')
+    await ctl.remove({ id: '1', name: 'A' })
+    expect(pushMock).toHaveBeenCalledWith('삭제에 실패했습니다.')
+  })
 })
