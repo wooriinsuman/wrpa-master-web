@@ -75,6 +75,14 @@ async function remove(row: WorkerRow) {
     push('삭제에 실패했습니다.')
   }
 }
+async function rotate(row: WorkerRow) {
+  try {
+    const res = await workers.rotateKey(row.id)
+    revealKey(res.apiKey)
+  } catch {
+    push('키 재발급에 실패했습니다.')
+  }
+}
 
 // one-time API key reveal
 const keyOpen = ref(false)
@@ -99,6 +107,7 @@ async function copyKey() {
       v-model:search="search" @add="openCreate" />
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
       <template #actions="{ row }">
+        <button class="act act--ghost" @click="rotate(row as WorkerRow)">키 재발급</button>
         <button class="act act--ghost" @click="openEdit(row as WorkerRow)">상세</button>
         <button class="act act--danger" @click="remove(row as WorkerRow)">삭제</button>
       </template>
