@@ -6,7 +6,7 @@ import type { StatusCell } from '~/utils/status'
 import { blankAccountForm, type AccountForm } from '~/utils/accountForm'
 
 type View = components['schemas']['AccountView']
-interface AccountRow extends CrudRow { status: StatusCell; insurer: string; name: string; company: string }
+interface AccountRow extends CrudRow { status: StatusCell; insurer: string; name: string; company: string; locked: boolean }
 
 const columns: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
@@ -22,6 +22,7 @@ function toRow(a: View): AccountRow {
     insurer: a.insuranceCompanyCode,
     name: a.name,
     company: a.companyId ?? '—',
+    locked: a.locked,
   }
 }
 
@@ -41,15 +42,26 @@ function toForm(a: View): AccountForm {
   }
 }
 
-const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove } =
+const accounts = useAccounts()
+const { push } = useToast()
+const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove, refresh } =
   await useCrudPage<View, AccountForm, AccountRow>({
     key: 'accounts',
-    resource: useAccounts(),
+    resource: accounts,
     blank: blankAccountForm,
     toRow,
     toForm,
     searchKeys: ['insurer', 'name', 'company'],
   })
+
+async function runLock(row: AccountRow) {
+  try { await accounts.lock(row.id); await refresh(); push('계정을 잠갔습니다.') }
+  catch { push('잠금에 실패했습니다.') }
+}
+async function runUnlock(row: AccountRow) {
+  try { await accounts.unlock(row.id); await refresh(); push('잠금을 해제했습니다.') }
+  catch { push('잠금 해제에 실패했습니다.') }
+}
 </script>
 
 <template>
@@ -71,6 +83,10 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     @save="save"
     @remove="remove"
   >
+    <template #row-actions-lead="{ row }">
+      <button v-if="row.locked" class="act act--ghost" @click="runUnlock(row)">잠금해제</button>
+      <button v-else class="act act--ghost" @click="runLock(row)">잠금</button>
+    </template>
     <template #fields>
       <label class="fld"><span>보험사 코드 *</span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
       <label class="fld"><span>계정명 *</span><input v-model="form.name" /></label>
