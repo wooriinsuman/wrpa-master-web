@@ -48,4 +48,24 @@ describe('toEnqueueWorkRequest', () => {
     expect(() => toEnqueueWorkRequest({ ...blankWorkForm(), company: 'x', lifetimeText: '0' }))
       .toThrow('실행 시간(ms)은 양수여야 합니다.')
   })
+
+  it('rejects non-object JSON parameters (scalar)', () => {
+    expect(() => toEnqueueWorkRequest({ ...blankWorkForm(), company: 'x', parametersText: '5' }))
+      .toThrow('파라미터는 JSON 객체여야 합니다.')
+  })
+
+  it('rejects array JSON parameters', () => {
+    expect(() => toEnqueueWorkRequest({ ...blankWorkForm(), company: 'x', parametersText: '[1,2]' }))
+      .toThrow('파라미터는 JSON 객체여야 합니다.')
+  })
+
+  it('rejects a negative lifetime', () => {
+    expect(() => toEnqueueWorkRequest({ ...blankWorkForm(), company: 'x', lifetimeText: '-1' }))
+      .toThrow('실행 시간(ms)은 양수여야 합니다.')
+  })
+
+  it('treats a whitespace-only lifetime as absent', () => {
+    expect(toEnqueueWorkRequest({ ...blankWorkForm(), company: 'x', lifetimeText: '   ' }))
+      .toEqual({ company: 'x' })
+  })
 })

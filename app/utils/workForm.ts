@@ -33,6 +33,9 @@ export function toEnqueueWorkRequest(f: WorkForm): EnqueueWorkRequest {
     } catch {
       throw new Error('파라미터가 올바른 JSON이 아닙니다.')
     }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('파라미터는 JSON 객체여야 합니다.')
+    }
     req.parameters = parsed
   }
 
