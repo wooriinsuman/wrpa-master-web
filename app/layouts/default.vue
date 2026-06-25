@@ -13,6 +13,7 @@ const current = computed(() => NAV.find(n => n.route === route.path))
       <AppTopbar :title="current?.label ?? 'WRPA'" />
       <main class="shell-content"><slot /></main>
     </div>
+    <WToast />
   </div>
 </template>
 
