@@ -2,8 +2,8 @@ import { defineVitestConfig } from '@nuxt/test-utils/config'
 
 export default defineVitestConfig({
   test: {
-    // Default to node; DOM-needing tests opt in per-file via
-    // `// @vitest-environment happy-dom` (e.g. useTheme.test.ts).
+    // Default to node; component tests that need mountSuspended opt in per-file via
+    // `// @vitest-environment nuxt` (e.g. WDrawer.test.ts).
     // (Vitest 4 removed `environmentMatchGlobs`; the docblock is the supported path.)
     environment: 'node',
   },

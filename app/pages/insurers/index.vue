@@ -71,7 +71,7 @@ async function remove(row: any) {
       :message="pending ? '불러오는 중…' : '아래에서 새 보험사를 등록하세요.'"
       cta-label="+ 보험사 등록" @cta="openCreate" />
 
-    <WDrawer v-model:open="drawerOpen" :title="editingId ? '보험사 수정' : '보험사 등록'">
+    <WDrawer v-model:open="drawerOpen" :title="editingId ? '보험사 수정' : '보험사 등록'" description="보험사 정보를 입력한 뒤 저장하세요.">
       <label class="fld"><span>코드 *</span><input v-model="form.code" placeholder="samsung_property" /></label>
       <label class="fld"><span>보험사명 *</span><input v-model="form.name" placeholder="삼성화재" /></label>
       <label class="fld"><span>구분</span>

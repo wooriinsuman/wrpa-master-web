@@ -1,7 +1,7 @@
 <!-- app/components/WDrawer.vue -->
 <script setup lang="ts">
-import { DialogRoot, DialogPortal, DialogOverlay, DialogContent, DialogTitle, DialogClose } from 'reka-ui'
-defineProps<{ open: boolean; title: string }>()
+import { DialogRoot, DialogPortal, DialogOverlay, DialogContent, DialogTitle, DialogDescription, DialogClose } from 'reka-ui'
+defineProps<{ open: boolean; title: string; description?: string }>()
 const emit = defineEmits<{ 'update:open': [v: boolean]; close: [] }>()
 function onOpenChange(v: boolean) { emit('update:open', v); if (!v) emit('close') }
 </script>
@@ -14,6 +14,7 @@ function onOpenChange(v: boolean) { emit('update:open', v); if (!v) emit('close'
           <DialogTitle class="dw-title">{{ title }}</DialogTitle>
           <DialogClose class="dw-close" aria-label="닫기">✕</DialogClose>
         </div>
+        <DialogDescription class="sr-only">{{ description ?? '양식을 입력한 뒤 저장하세요.' }}</DialogDescription>
         <div class="dw-body"><slot /></div>
         <div class="dw-foot"><slot name="footer" /></div>
       </DialogContent>
@@ -21,6 +22,7 @@ function onOpenChange(v: boolean) { emit('update:open', v); if (!v) emit('close'
   </DialogRoot>
 </template>
 <style scoped>
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .dw-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(15,21,33,.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .dw-panel { position: fixed; top: 0; right: 0; z-index: 91; width: 392px; max-width: 100%; height: 100%; background: var(--panel); border-left: 1px solid var(--line); box-shadow: -22px 0 60px rgba(16,24,40,.28), inset 1px 0 0 rgba(255,255,255,.4); padding: 22px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
 .dw-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

@@ -10,7 +10,7 @@ describe('WDrawer', () => {
   })
 
   it('renders title and body content when open', async () => {
-    const el = await mountSuspended(WDrawer, { props: { open: true, title: '보험사 등록' }, slots: { default: () => '폼내용' } })
+    await mountSuspended(WDrawer, { props: { open: true, title: '보험사 등록' }, slots: { default: () => '폼내용' } })
     expect(document.body.textContent).toContain('보험사 등록')
     expect(document.body.textContent).toContain('폼내용')
   })
