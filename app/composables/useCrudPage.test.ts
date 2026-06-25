@@ -82,4 +82,36 @@ describe('useCrudPage', () => {
     expect(r.remove).toHaveBeenCalledWith('1')
     expect(pushMock).toHaveBeenCalledWith('삭제되었습니다.')
   })
+
+  it('openEdit is a no-op when toForm is absent', async () => {
+    const r = makeResource([{ id: '1', name: 'A' }])
+    let ctl: CrudPageController<Frm, Row>
+    const Host = defineComponent({
+      async setup() {
+        ctl = await useCrudPage<Ent, Frm, Row>({
+          key: 't-noedit',
+          resource: r,
+          blank: () => ({ name: '' }),
+          toRow: (e: Ent) => ({ id: e.id, name: e.name }),
+          searchKeys: ['name'],
+        })
+        return () => h('div')
+      },
+    })
+    await mountSuspended(Host)
+    ctl!.openEdit({ id: '1', name: 'A' })
+    expect(ctl!.drawerOpen.value).toBe(false)
+    expect(ctl!.editingId.value).toBe(null)
+  })
+
+  it('save() resets editingId to null after a successful edit', async () => {
+    const r = makeResource([{ id: '7', name: 'Old' }])
+    const ctl = await mountWith(r, 't-edit-reset')
+    ctl.openEdit({ id: '7', name: 'Old' })
+    expect(ctl.editingId.value).toBe('7')
+    await ctl.save()
+    expect(r.update).toHaveBeenCalledWith('7', { name: 'Old' })
+    expect(ctl.editingId.value).toBe(null)
+    expect(pushMock).toHaveBeenCalledWith('수정되었습니다.')
+  })
 })

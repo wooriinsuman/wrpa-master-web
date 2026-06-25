@@ -72,11 +72,13 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
 
   async function save() {
     try {
-      if (editingId.value && config.resource.update) await config.resource.update(editingId.value, form.value)
+      const editing = editingId.value
+      if (editing && config.resource.update) await config.resource.update(editing, form.value)
       else await config.resource.create(form.value)
       drawerOpen.value = false
+      editingId.value = null
       await refresh()
-      push(editingId.value ? msg.updated : msg.created)
+      push(editing ? msg.updated : msg.created)
     } catch (e: any) {
       push(e?.message ?? msg.saveFailed)
     }
