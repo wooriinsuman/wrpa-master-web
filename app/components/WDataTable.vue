@@ -1,5 +1,6 @@
 <!-- app/components/WDataTable.vue -->
 <script setup lang="ts">
+import { isStatusCell } from '~/utils/status'
 export interface Column { key: string; label: string; kind?: 'text' | 'mono' | 'muted' | 'status' }
 defineProps<{ columns: Column[]; rows: Record<string, any>[] }>()
 </script>
@@ -15,7 +16,10 @@ defineProps<{ columns: Column[]; rows: Record<string, any>[] }>()
       </div>
       <div v-for="(row, i) in rows" :key="i" class="dt-row">
         <div v-for="c in columns" :key="c.key" class="dt-td" :class="`dt-td--${c.kind ?? 'text'}`">
-          <WStatusBadge v-if="c.kind === 'status'" :label="String(row[c.key])" />
+          <template v-if="c.kind === 'status'">
+            <WStatusBadge v-if="isStatusCell(row[c.key])" :label="row[c.key].label" :kind="row[c.key].kind" />
+            <WStatusBadge v-else :label="String(row[c.key])" />
+          </template>
           <span v-else>{{ row[c.key] }}</span>
         </div>
         <div class="dt-td dt-actions"><slot name="actions" :row="row" /></div>

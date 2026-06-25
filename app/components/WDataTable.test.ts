@@ -25,4 +25,11 @@ describe('WDataTable', () => {
     })
     expect(el.text()).toContain('act-SS-001')
   })
+  it('renders a StatusCell with its explicit kind', async () => {
+    const cols = [{ key: 'status', label: '상태', kind: 'status' as const }]
+    const rows = [{ status: { label: '대기', kind: 'fail' } }]
+    const el = await mountSuspended(WDataTable, { props: { columns: cols, rows } })
+    expect(el.find('.badge--fail').exists()).toBe(true)
+    expect(el.text()).toContain('대기')
+  })
 })

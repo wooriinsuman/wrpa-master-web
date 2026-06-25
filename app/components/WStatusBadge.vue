@@ -1,9 +1,9 @@
 <!-- app/components/WStatusBadge.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import { labelToKind } from '~/utils/status'
-const props = defineProps<{ label: string }>()
-const kind = computed(() => labelToKind(props.label))
+import { labelToKind, type StatusKind } from '~/utils/status'
+const props = defineProps<{ label: string; kind?: StatusKind }>()
+const kind = computed<StatusKind>(() => props.kind ?? labelToKind(props.label))
 </script>
 <template>
   <span class="badge" :class="`badge--${kind}`">{{ label }}</span>

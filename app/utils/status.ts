@@ -10,3 +10,8 @@ const LABEL_KIND: Record<string, StatusKind> = {
 export function labelToKind(label: string): StatusKind {
   return LABEL_KIND[label] ?? 'idle'
 }
+
+export interface StatusCell { label: string; kind: StatusKind }
+export function isStatusCell(v: unknown): v is StatusCell {
+  return typeof v === 'object' && v !== null && 'label' in v && 'kind' in v
+}
