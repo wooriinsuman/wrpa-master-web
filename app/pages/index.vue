@@ -3,6 +3,7 @@
 import { computed } from 'vue'
 import type { Column } from '~/components/WDataTable.vue'
 import type { FleetCell } from '~/components/FleetStrip.vue'
+import type { StatusCell } from '~/utils/status'
 import { workerStateKind, workStateKind, formatAge, ageColorKind } from '~/utils/dashboardState'
 
 const { workers, works, pending } = useDashboard()
@@ -36,7 +37,10 @@ const workCols: Column[] = [
 ]
 const workRows = computed(() => works.value
   .filter(w => workStateKind(w.state) === 'run')
-  .map(w => ({ status: w.state === 'started' ? '실행중' : w.state, id: w.id, company: w.company, state: w.state })))
+  .map(w => ({
+    status: { label: w.state === 'started' ? '실행중' : w.state, kind: workStateKind(w.state) } as StatusCell,
+    id: w.id, company: w.company, state: w.state,
+  })))
 </script>
 
 <template>

@@ -4,6 +4,7 @@ import { ref, computed } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { InsurerForm } from '~/utils/insurerForm'
+import type { StatusCell } from '~/utils/status'
 type View = components['schemas']['InsuranceCompanyView']
 
 const insurers = useInsurers()
@@ -13,8 +14,9 @@ const { data, refresh, pending } = await useAsyncData('insurers', () => insurers
 const search = ref('')
 const rows = computed(() => {
   const list = (data.value ?? []).map(v => ({
-    id: v.id, status: v.active ? '활성' : '정지', name: v.name, code: v.code,
-    type: v.type, url: v.url,
+    id: v.id,
+    status: { label: v.active ? '활성' : '정지', kind: v.active ? 'done' : 'idle' } as StatusCell,
+    name: v.name, code: v.code, type: v.type, url: v.url, active: v.active,
   }))
   const q = search.value.trim().toLowerCase()
   return q ? list.filter(r => [r.name, r.code, r.url].some(x => String(x).toLowerCase().includes(q))) : list
@@ -39,7 +41,7 @@ function openCreate() {
 }
 function openEdit(row: any) {
   editingId.value = row.id
-  form.value = { code: row.code, name: row.name, type: row.type, url: row.url, active: row.status === '활성' }
+  form.value = { code: row.code, name: row.name, type: row.type, url: row.url, active: row.active }
   drawerOpen.value = true
 }
 async function save() {
