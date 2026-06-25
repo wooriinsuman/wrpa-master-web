@@ -22,6 +22,6 @@ defineEmits<{ add: []; 'update:search': [v: string] }>()
 .ph-desc { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
 .ph-actions { display: flex; gap: 10px; align-items: center; }
 .ph-search { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font-mono); font-size: 12.5px; width: 170px; max-width: 42vw; background: var(--th); color: var(--ink); }
-.add { padding: 8px 14px; border-radius: 9px; border: none; background: var(--run); color: var(--on-accent); font-family: var(--font-sans); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(45,125,210,.3), inset 0 1px 0 rgba(255,255,255,.2); transition: transform .15s ease; }
+.add { padding: 8px 14px; border-radius: 9px; border: none; background: var(--run); color: var(--on-accent); font-family: var(--font-sans); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px var(--run-shadow), inset 0 1px 0 rgba(255,255,255,.2); transition: transform .15s ease; }
 .add:hover { transform: translateY(-1px); }
 </style>

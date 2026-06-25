@@ -60,7 +60,7 @@ const drawerOpen = defineModel<boolean>('drawerOpen', { default: false })
 :deep(.act) { padding: 5px 11px; border-radius: 8px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 :deep(.act--ghost) { background: transparent; border: 1px solid var(--line); color: var(--ink-2); }
 :deep(.act--danger) { background: transparent; border: 1px solid var(--line); color: var(--fail); }
-:deep(.act--primary) { background: var(--run); border: none; color: var(--on-accent); box-shadow: 0 2px 8px rgba(45,125,210,.3); }
+:deep(.act--primary) { background: var(--run); border: none; color: var(--on-accent); box-shadow: 0 2px 8px var(--run-shadow); }
 :deep(.fld) { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
 :deep(.fld input), :deep(.fld select) { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; background: var(--th); color: var(--ink); }
 :deep(.fld input:disabled) { opacity: .6; }
