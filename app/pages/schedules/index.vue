@@ -109,6 +109,8 @@ async function runNow(row: JobRow) {
       <label class="fld"><span>타임아웃(초)</span><input v-model="form.timeoutSec" inputmode="numeric" /></label>
       <label class="fld fld--row"><input type="checkbox" v-model="form.locked" /><span>잠금</span></label>
       <label class="fld fld--row"><input type="checkbox" v-model="form.excludeWeekendHoliday" /><span>주말·공휴일 제외</span></label>
+      <label class="fld fld--row"><input type="checkbox" v-model="form.startBusinessDay" /><span>영업일 시작 기준</span></label>
+      <label class="fld fld--row"><input type="checkbox" v-model="form.endBusinessDay" /><span>영업일 종료 기준</span></label>
       <label class="fld"><span>비고</span><input v-model="form.note" /></label>
     </template>
   </WCrudPage>
