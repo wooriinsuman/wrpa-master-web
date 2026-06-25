@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { buildProxyHeaders } from './_proxy-helpers'
+import { buildProxyHeaders } from './proxy-helpers'
 
 describe('buildProxyHeaders', () => {
   it('adds Bearer auth when token cookie present', () => {

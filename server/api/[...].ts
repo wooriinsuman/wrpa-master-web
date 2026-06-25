@@ -1,4 +1,4 @@
-import { buildProxyHeaders } from './_proxy-helpers'
+import { buildProxyHeaders } from '../utils/proxy-helpers'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
