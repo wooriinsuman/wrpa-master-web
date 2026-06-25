@@ -1,11 +1,114 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import type { components } from '#shared/types/api'
+import type { Column } from '~/components/WDataTable.vue'
+import type { StatusCell } from '~/utils/status'
+import { blankUserForm, type UserForm } from '~/utils/userForm'
+
+type UserView = components['schemas']['UserView']
+type Role = components['schemas']['Role']
+interface UserRow { id: string; status: StatusCell; username: string; name: string; roles: string; company: string }
+
+const users = useUsers()
+const { push } = useToast()
+const { data, refresh, pending } = await useAsyncData('users', async () => {
+  const [list, roleList] = await Promise.all([users.list(), users.roles()])
+  return { list, roleList }
+})
+const roleOptions = computed<Role[]>(() => data.value?.roleList ?? [])
+
+const search = ref('')
+const rows = computed<UserRow[]>(() => {
+  const list: UserRow[] = (data.value?.list ?? []).map(u => ({
+    id: u.id,
+    status: { label: u.active ? '활성' : '정지', kind: u.active ? 'done' : 'idle' } as StatusCell,
+    username: u.username,
+    name: u.name,
+    roles: (u.roles ?? []).join(', ') || '—',
+    company: u.companyId ?? '—',
+  }))
+  const q = search.value.trim().toLowerCase()
+  return q ? list.filter(r => [r.username, r.name, r.roles].some(x => String(x).toLowerCase().includes(q))) : list
+})
+
+const columns: Column[] = [
+  { key: 'status', label: '상태', kind: 'status' },
+  { key: 'username', label: '아이디', kind: 'mono' },
+  { key: 'name', label: '이름', kind: 'text' },
+  { key: 'roles', label: '역할', kind: 'text' },
+  { key: 'company', label: '거래처', kind: 'mono' },
+]
+
+const drawerOpen = ref(false)
+const form = ref<UserForm>(blankUserForm())
+function openCreate() {
+  form.value = blankUserForm()
+  drawerOpen.value = true
+}
+function toggleRole(id: string) {
+  const i = form.value.roleIds.indexOf(id)
+  if (i === -1) form.value.roleIds.push(id)
+  else form.value.roleIds.splice(i, 1)
+}
+async function save() {
+  try {
+    await users.create(form.value)
+    drawerOpen.value = false
+    await refresh()
+    push('등록되었습니다.')
+  } catch (e: any) {
+    push(e?.message ?? '저장에 실패했습니다.')
+  }
+}
+</script>
+
 <template>
   <section class="panel">
-    <h2>사용자</h2>
-    <p class="muted">목록·등록은 후속 플랜에서 연결됩니다.</p>
+    <WPageHeader title="사용자" desc="시스템 사용자 관리" add-label="+ 사용자 등록"
+      v-model:search="search" @add="openCreate" />
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
+      <template #actions>
+        <span class="muted">—</span>
+      </template>
+    </WDataTable>
+    <WEmptyState v-else title="사용자가 없습니다"
+      :message="pending ? '불러오는 중…' : '아래에서 새 사용자를 등록하세요.'"
+      cta-label="+ 사용자 등록" @cta="openCreate" />
+
+    <WDrawer v-model:open="drawerOpen" title="사용자 등록" description="사용자 정보를 입력한 뒤 저장하세요.">
+      <label class="fld"><span>아이디 *</span><input v-model="form.username" placeholder="admin" /></label>
+      <label class="fld"><span>비밀번호 *</span><input v-model="form.password" type="password" /></label>
+      <label class="fld"><span>이름 *</span><input v-model="form.name" /></label>
+      <label class="fld"><span>이메일</span><input v-model="form.email" type="email" placeholder="user@example.com" /></label>
+      <label class="fld"><span>휴대폰</span><input v-model="form.mobile" /></label>
+      <label class="fld"><span>거래처 ID</span><input v-model="form.companyId" /></label>
+      <div class="fld">
+        <span>역할</span>
+        <div v-if="roleOptions.length" class="roles">
+          <label v-for="r in roleOptions" :key="r.id" class="fld fld--row">
+            <input type="checkbox" :checked="form.roleIds.includes(r.id)" @change="toggleRole(r.id)" />
+            <span>{{ r.name }}</span>
+          </label>
+        </div>
+        <span v-else class="muted">사용 가능한 역할이 없습니다.</span>
+      </div>
+      <label class="fld"><span>메모</span><input v-model="form.memo" /></label>
+      <template #footer>
+        <button class="act act--ghost" @click="drawerOpen = false">취소</button>
+        <button class="act act--primary" @click="save">저장</button>
+      </template>
+    </WDrawer>
   </section>
 </template>
+
 <style scoped>
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--rim),var(--elev)}
-.panel h2{font-family:var(--font-display);font-size:15px;margin:0 0 8px}
-.muted{color:var(--ink-2);font-size:13px}
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
+.act { padding: 5px 11px; border-radius: 8px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.act--ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-2); }
+.act--primary { background: var(--run); border: none; color: var(--on-accent); box-shadow: 0 2px 8px var(--run-shadow); }
+.fld { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.fld input { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; background: var(--th); color: var(--ink); }
+.fld--row { flex-direction: row; align-items: center; }
+.roles { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--th); }
+.muted { color: var(--ink-2); font-size: 12px; }
 </style>
