@@ -15,6 +15,16 @@ export default defineEventHandler(async (event) => {
       deleteCookie(event, 'access_token')
       throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
     }
+    // Backend (rpaApiUrl) unreachable — surface a clean 502 instead of an
+    // unhandled ECONNREFUSED stack trace flooding the dev server logs.
+    const code = err?.cause?.code ?? err?.code
+    if (!err?.response && ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'].includes(code)) {
+      throw createError({
+        statusCode: 502,
+        statusMessage: 'Bad Gateway',
+        message: `RPA API unreachable at ${config.rpaApiUrl} (${code})`,
+      })
+    }
     throw err
   }
 })
