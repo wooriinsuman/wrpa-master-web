@@ -8,6 +8,10 @@
   --run:#2D7DD2; --idle:#8896A6; --fail:#E0533D; --done:#2FA36B;
   --on-accent:#FFFFFF;
   --run-shadow:rgba(45,125,210,.3);
+  /* form fields (DS) */
+  --field:#FFFFFF;
+  --field-inset:inset 0 1px 2px rgba(16,24,40,.05);
+  --focus-ring:0 0 0 3px rgba(45,125,210,.18);
   --font-sans:'Pretendard',system-ui,sans-serif;
   --font-mono:'JetBrains Mono',monospace;
   --font-display:'Space Grotesk',sans-serif;
@@ -18,6 +22,9 @@
   --rim:inset 0 1px 0 rgba(255,255,255,.06);
   --elev:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.5);
   --elev-hi:0 3px 8px rgba(0,0,0,.45),0 22px 46px rgba(0,0,0,.62);
+  --field:#121A27;
+  --field-inset:inset 0 1px 2px rgba(0,0,0,.30);
+  --focus-ring:0 0 0 3px rgba(45,125,210,.32);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}

@@ -1,0 +1,138 @@
+/* app/assets/css/components.css — DS form fields & buttons (single source of truth)
+   Global (unscoped) so every page/modal shares the same look. Pages should use
+   the .fld / .act class API below instead of redefining these locally. */
+
+/* ============================ Form fields ============================ */
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.fld > span,
+.fld > label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* required-field asterisk */
+.req { color: var(--fail); }
+
+.fld input,
+.fld select,
+.fld textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  background: var(--field);
+  color: var(--ink);
+  box-shadow: var(--field-inset);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.fld input::placeholder,
+.fld textarea::placeholder { color: var(--ink-2); opacity: .6; }
+
+.fld input:focus,
+.fld select:focus,
+.fld textarea:focus {
+  outline: none;
+  border-color: var(--run);
+  box-shadow: var(--focus-ring);
+}
+.fld input:disabled,
+.fld select:disabled,
+.fld textarea:disabled { opacity: .6; cursor: not-allowed; }
+
+/* monospace inputs for codes / ids / urls */
+.fld input.mono { font-family: var(--font-mono); }
+
+/* select with custom chevron (no native arrow) */
+.fld select {
+  padding-right: 36px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%238896A6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+}
+
+/* inline / horizontal field */
+.fld--row { flex-direction: row; align-items: center; }
+
+/* checkbox toggle presented as a bordered row */
+.fld--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--th);
+  cursor: pointer;
+}
+.fld--check .fld-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.fld--check .fld-hint { font-size: 11.5px; font-weight: 500; color: var(--ink-2); margin-left: auto; }
+
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--run);
+  cursor: pointer;
+  flex: none;
+}
+
+/* grouped options box (e.g. role list) */
+.roles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--th);
+}
+
+/* ============================== Buttons ============================== */
+.act {
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, color .15s ease;
+}
+.act--primary {
+  background: var(--run);
+  color: var(--on-accent);
+  box-shadow: 0 2px 8px var(--run-shadow), inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+.act--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(45, 125, 210, .4), inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+.act--ghost {
+  background: var(--field);
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+.act--ghost:hover { border-color: var(--idle); color: var(--ink); }
+.act--danger {
+  background: var(--field);
+  border-color: var(--line);
+  color: var(--fail);
+}
+.act--danger:hover { border-color: var(--fail); }
+.act:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+/* compact action buttons inside data-table rows */
+.dt-actions .act { padding: 5px 11px; font-size: 12px; }
