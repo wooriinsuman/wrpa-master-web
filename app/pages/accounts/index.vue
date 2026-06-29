@@ -89,16 +89,16 @@ async function runUnlock(row: AccountRow) {
       <button v-else class="act act--ghost" @click="runLock(row)">잠금</button>
     </template>
     <template #fields>
-      <label class="fld"><span>보험사 코드 *</span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
-      <label class="fld"><span>계정명 *</span><input v-model="form.name" /></label>
-      <label class="fld"><span>{{ editingId ? '로그인 ID (변경 시 입력)' : '로그인 ID *' }}</span><input v-model="form.loginId" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
-      <label class="fld"><span>{{ editingId ? '비밀번호 (변경 시 입력)' : '비밀번호 *' }}</span><input v-model="form.password" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
+      <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
+      <label class="fld"><span>계정명 <span class="req">*</span></span><input v-model="form.name" /></label>
+      <label class="fld"><span>로그인 ID <span v-if="!editingId" class="req">*</span><span v-else> (변경 시 입력)</span></span><input v-model="form.loginId" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
+      <label class="fld"><span>비밀번호 <span v-if="!editingId" class="req">*</span><span v-else> (변경 시 입력)</span></span><input v-model="form.password" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
       <label class="fld"><span>거래처 ID</span><input v-model="form.companyId" /></label>
       <label class="fld"><span>통신사</span><input v-model="form.telecomAgency" /></label>
       <label class="fld"><span>연락처</span><input v-model="form.phone" /></label>
       <label class="fld"><span>그룹 코드</span><input v-model="form.groupCode" /></label>
-      <label class="fld"><span>보조 코드</span><input v-model="form.secondaryCode" /></label>
-      <label class="fld"><span>보조 비밀번호</span><input v-model="form.secondaryPassword" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
+      <label class="fld"><span>2차 코드</span><input v-model="form.secondaryCode" /></label>
+      <label class="fld"><span>2차 비밀번호</span><input v-model="form.secondaryPassword" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
       <label class="fld"><span>수수료 비밀번호</span><input v-model="form.feePassword" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
     </template>
   </WCrudPage>

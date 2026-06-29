@@ -78,7 +78,7 @@ const resultText = computed(() =>
       cta-label="+ 작업 실행" @cta="openEnqueue" />
 
     <WDrawer v-model:open="enqueueOpen" title="작업 실행" description="보험사 코드와 태스크를 입력해 작업을 실행하세요.">
-      <label class="fld"><span>보험사 코드 *</span><input v-model="form.company" placeholder="samsung_property" /></label>
+      <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.company" placeholder="samsung_property" /></label>
       <label class="fld"><span>태스크 (쉼표 구분, 비우면 전체)</span><input v-model="form.tasksText" placeholder="contract_list_all_a, contract_list_all_b" /></label>
       <label class="fld"><span>파라미터 (JSON)</span><textarea v-model="form.parametersText" rows="4" placeholder='{"key":"value"}'></textarea></label>
       <label class="fld"><span>실행 시간 ms (기본 300000)</span><input v-model="form.lifetimeText" inputmode="numeric" placeholder="300000" /></label>
@@ -99,11 +99,7 @@ const resultText = computed(() =>
 </template>
 
 <style scoped>
+/* .fld / .act come from the global DS (assets/css/components.css). */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
-.act { padding: 5px 11px; border-radius: 8px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.act--ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-2); }
-.act--primary { background: var(--run); border: none; color: var(--on-accent); box-shadow: 0 2px 8px var(--run-shadow); }
-.fld { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.fld input, .fld textarea { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; background: var(--th); color: var(--ink); font-family: var(--font-sans); }
 .codeblock { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--th); color: var(--ink); font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow: auto; }
 </style>

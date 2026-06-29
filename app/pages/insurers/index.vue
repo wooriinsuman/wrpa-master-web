@@ -65,8 +65,8 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     @remove="remove"
   >
     <template #fields>
-      <label class="fld"><span>코드 *</span><input v-model="form.code" placeholder="samsung_property" /></label>
-      <label class="fld"><span>보험사명 *</span><input v-model="form.name" placeholder="삼성화재" /></label>
+      <label class="fld"><span>코드 <span class="req">*</span></span><input v-model="form.code" placeholder="samsung_property" /></label>
+      <label class="fld"><span>보험사명 <span class="req">*</span></span><input v-model="form.name" placeholder="삼성화재" /></label>
       <label class="fld"><span>구분</span>
         <select v-model="form.type"><option>LIFE</option><option>PROPERTY</option><option>GUARANTEE</option><option>UNKNOWN</option></select>
       </label>

@@ -73,12 +73,12 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     @remove="remove"
   >
     <template #fields>
-      <label class="fld"><span>보험사 코드 *</span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
-      <label class="fld"><span>이름 *</span><input v-model="form.name" placeholder="계약 전체 목록" /></label>
-      <label class="fld"><span>데이터 *</span><input v-model="form.dataType" placeholder="contract" /></label>
-      <label class="fld"><span>유형 *</span><input v-model="form.fileType" placeholder="list" /></label>
-      <label class="fld"><span>보종 *</span><input v-model="form.insureType" placeholder="all" /></label>
-      <label class="fld"><span>컨텐츠 *</span><input v-model="form.contentType" placeholder="a" /></label>
+      <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
+      <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" placeholder="계약 전체 목록" /></label>
+      <label class="fld"><span>데이터 <span class="req">*</span></span><input v-model="form.dataType" placeholder="contract" /></label>
+      <label class="fld"><span>유형 <span class="req">*</span></span><input v-model="form.fileType" placeholder="list" /></label>
+      <label class="fld"><span>보종 <span class="req">*</span></span><input v-model="form.insureType" placeholder="all" /></label>
+      <label class="fld"><span>컨텐츠 <span class="req">*</span></span><input v-model="form.contentType" placeholder="a" /></label>
       <label class="fld"><span>비고</span><input v-model="form.note" /></label>
     </template>
   </WCrudPage>

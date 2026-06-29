@@ -117,8 +117,8 @@ async function copyKey() {
       cta-label="+ 워커 등록" @cta="openCreate" />
 
     <WDrawer v-model:open="crudOpen" :title="editingId ? '워커 수정' : '워커 등록'" description="워커 정보를 입력한 뒤 저장하세요.">
-      <label class="fld"><span>이름 *</span><input v-model="form.name" placeholder="ergate-01" /></label>
-      <label class="fld"><span>유형 *</span><input v-model="form.type" placeholder="crawler" /></label>
+      <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" placeholder="ergate-01" /></label>
+      <label class="fld"><span>유형 <span class="req">*</span></span><input v-model="form.type" placeholder="crawler" /></label>
       <label class="fld"><span>태그 (쉼표 구분)</span><input v-model="form.tagsText" placeholder="seoul, gpu" /></label>
       <label class="fld fld--row"><input type="checkbox" v-model="form.shared" /><span>공유 워커</span></label>
       <template #footer>
@@ -139,14 +139,8 @@ async function copyKey() {
 </template>
 
 <style scoped>
+/* .fld / .act come from the global DS (assets/css/components.css). */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
-.act { padding: 5px 11px; border-radius: 8px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.act--ghost { background: transparent; border: 1px solid var(--line); color: var(--ink-2); }
-.act--danger { background: transparent; border: 1px solid var(--line); color: var(--fail); }
-.act--primary { background: var(--run); border: none; color: var(--on-accent); box-shadow: 0 2px 8px var(--run-shadow); }
-.fld { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.fld input { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; background: var(--th); color: var(--ink); }
-.fld--row { flex-direction: row; align-items: center; }
 .warn { margin: 0; font-size: 12px; color: var(--fail); font-weight: 600; }
 .codeblock { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--th); color: var(--ink); font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; word-break: break-all; }
 </style>

@@ -58,8 +58,8 @@ const { rows, search, pending, drawerOpen, form, openCreate, save, remove } = aw
     @remove="remove"
   >
     <template #fields>
-      <label class="fld"><span>거래처명 *</span><input v-model="form.name" placeholder="로앤손해사정" /></label>
-      <label class="fld"><span>코드 *</span><input v-model="form.code" placeholder="LA-01" /></label>
+      <label class="fld"><span>거래처명 <span class="req">*</span></span><input v-model="form.name" placeholder="로앤손해사정" /></label>
+      <label class="fld"><span>코드 <span class="req">*</span></span><input v-model="form.code" placeholder="LA-01" /></label>
       <label class="fld"><span>담당자</span><input v-model="form.leaderName" /></label>
       <label class="fld"><span>연락처</span><input v-model="form.phone" /></label>
       <label class="fld"><span>사업자번호</span><input v-model="form.businessRegistrationNumber" /></label>
