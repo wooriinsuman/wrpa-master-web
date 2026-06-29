@@ -28,16 +28,20 @@ defineProps<{ columns: Column[]; rows: Record<string, any>[] }>()
   </div>
 </template>
 <style scoped>
-.dt-wrap { overflow-x: auto; }
+/* When the wrap is a flex child of a height-bounded .panel (list pages) it
+   fills the remaining space and scrolls internally; elsewhere (e.g. dashboard)
+   it has no bounded height, so it simply grows to content. */
+.dt-wrap { flex: 1; min-height: 0; overflow: auto; }
 .dt-min { min-width: 680px; }
-.dt-head { display: flex; align-items: center; background: var(--th); }
-.dt-th { flex: 1; min-width: 0; padding: 10px 16px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
-.dt-actions-h { flex: none; width: 128px; text-align: right; }
+.dt-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; background: var(--th); border-bottom: 1px solid var(--line); }
+.dt-th { flex: 1; min-width: 0; padding: 11px 16px; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; white-space: nowrap; text-align: center; }
+.dt-actions-h { flex: none; width: 128px; text-align: center; }
 .dt-row { display: flex; align-items: center; border-top: 1px solid var(--line); transition: background .15s ease; }
+.dt-row:first-child { border-top: none; }
 .dt-row:hover { background: var(--th); }
-.dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-align: center; }
 .dt-td--mono { font-family: var(--font-mono); }
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
-.dt-actions { flex: none; width: 128px; display: flex; gap: 6px; justify-content: flex-end; }
+.dt-actions { flex: none; width: 128px; display: flex; gap: 6px; justify-content: center; }
 .dt-empty { padding: 32px 16px; text-align: center; font-size: 13px; color: var(--ink-2); }
 </style>

@@ -20,7 +20,8 @@ const current = computed(() => NAV.find(n => n.route === route.path))
 <style scoped>
 .shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: var(--bg);
   color: var(--ink);
 }
@@ -28,6 +29,7 @@ const current = computed(() => NAV.find(n => n.route === route.path))
 .shell-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -35,6 +37,21 @@ const current = computed(() => NAV.find(n => n.route === route.path))
 .shell-content {
   padding: 24px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* List pages render a single root <section class="panel"> — let it fill the
+   viewport height so its data table scrolls internally with a pinned header
+   instead of the whole page scrolling. Dashboard panels live inside .dash
+   (not a direct child), so they keep natural page scroll. */
+.shell-content > :deep(.panel) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 880px) {
