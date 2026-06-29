@@ -2,10 +2,10 @@
 <script setup lang="ts">
 import { isStatusCell } from '~/utils/status'
 export interface Column { key: string; label: string; kind?: 'text' | 'mono' | 'muted' | 'status' }
-defineProps<{ columns: Column[]; rows: Record<string, any>[] }>()
+const props = defineProps<{ columns: Column[]; rows: Record<string, any>[]; actionsWidth?: number }>()
 </script>
 <template>
-  <div class="dt-wrap">
+  <div class="dt-wrap" :style="{ '--dt-actions-w': `${props.actionsWidth ?? 128}px` }">
     <div class="dt-min">
       <div class="dt-head">
         <div v-for="c in columns" :key="c.key" class="dt-th">{{ c.label }}</div>
@@ -35,13 +35,13 @@ defineProps<{ columns: Column[]; rows: Record<string, any>[] }>()
 .dt-min { min-width: 680px; }
 .dt-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; background: var(--th); border-bottom: 1px solid var(--line); }
 .dt-th { flex: 1; min-width: 0; padding: 11px 16px; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; white-space: nowrap; text-align: center; }
-.dt-actions-h { flex: none; width: 128px; text-align: center; }
+.dt-actions-h { flex: none; width: var(--dt-actions-w, 128px); text-align: center; }
 .dt-row { display: flex; align-items: center; border-top: 1px solid var(--line); transition: background .15s ease; }
 .dt-row:first-child { border-top: none; }
 .dt-row:hover { background: var(--th); }
 .dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-align: center; }
 .dt-td--mono { font-family: var(--font-mono); }
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
-.dt-actions { flex: none; width: 128px; display: flex; gap: 6px; justify-content: center; }
+.dt-actions { flex: none; width: var(--dt-actions-w, 128px); display: flex; gap: 6px; justify-content: center; }
 .dt-empty { padding: 32px 16px; text-align: center; font-size: 13px; color: var(--ink-2); }
 </style>

@@ -14,6 +14,7 @@ defineProps<{
   drawerTitle: string
   drawerDescription?: string
   editable?: boolean
+  actionsWidth?: number
 }>()
 
 const emit = defineEmits<{
@@ -30,7 +31,7 @@ const drawerOpen = defineModel<boolean>('drawerOpen', { default: false })
 <template>
   <section class="panel">
     <WPageHeader :title="title" :desc="desc" :add-label="addLabel" v-model:search="search" @add="emit('add')" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="actionsWidth">
       <template #actions="{ row }">
         <slot name="row-actions-lead" :row="(row as Row)" />
         <button v-if="editable" class="act act--ghost" @click="emit('edit', row as Row)">상세</button>

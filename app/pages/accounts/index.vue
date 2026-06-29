@@ -76,6 +76,7 @@ async function runUnlock(row: AccountRow) {
     :rows="rows"
     :pending="pending"
     editable
+    :actions-width="208"
     v-model:search="search"
     v-model:drawer-open="drawerOpen"
     @add="openCreate"
