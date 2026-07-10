@@ -32,7 +32,7 @@ function num(v: string, fallback: number): number {
 }
 
 function assertWorkFileIds(f: JobForm): string[] {
-  if (!f.companyId.trim()) throw new Error('거래처를 입력하세요.')
+  if (!f.companyId.trim()) throw new Error('회사를 입력하세요.')
   if (!f.accountId.trim()) throw new Error('계정을 입력하세요.')
   const workFileIds = splitIds(f.workFileIdsText)
   if (workFileIds.length === 0) throw new Error('작업 파일 ID를 1개 이상 입력하세요.')

@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   try {
     return await $fetch(`${config.rpaApiUrl}${path}`, {
       method: event.method,
-      headers: buildProxyHeaders(token),
+      headers: buildProxyHeaders(token, config.uploadToken),
       body: ['GET', 'HEAD'].includes(event.method) ? undefined : await readBody(event).catch(() => undefined),
     })
   } catch (err: any) {

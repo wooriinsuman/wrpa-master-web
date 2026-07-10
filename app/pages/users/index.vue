@@ -36,7 +36,7 @@ const columns: Column[] = [
   { key: 'username', label: '아이디', kind: 'mono' },
   { key: 'name', label: '이름', kind: 'text' },
   { key: 'roles', label: '역할', kind: 'text' },
-  { key: 'company', label: '거래처', kind: 'mono' },
+  { key: 'company', label: '회사', kind: 'mono' },
 ]
 
 const drawerOpen = ref(false)
@@ -81,7 +81,7 @@ async function save() {
       <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" /></label>
       <label class="fld"><span>이메일</span><input v-model="form.email" type="email" placeholder="user@example.com" /></label>
       <label class="fld"><span>휴대폰</span><input v-model="form.mobile" /></label>
-      <label class="fld"><span>거래처 ID</span><input v-model="form.companyId" /></label>
+      <label class="fld"><span>회사 ID</span><input v-model="form.companyId" /></label>
       <div class="fld">
         <span>역할</span>
         <div v-if="roleOptions.length" class="roles">

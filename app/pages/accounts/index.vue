@@ -12,7 +12,7 @@ const columns: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
   { key: 'insurer', label: '보험사', kind: 'mono' },
   { key: 'name', label: '계정명', kind: 'text' },
-  { key: 'company', label: '거래처', kind: 'mono' },
+  { key: 'company', label: '회사', kind: 'mono' },
 ]
 
 function toRow(a: View): AccountRow {
@@ -93,7 +93,7 @@ async function runUnlock(row: AccountRow) {
       <label class="fld"><span>계정명 <span class="req">*</span></span><input v-model="form.name" /></label>
       <label class="fld"><span>로그인 ID <span v-if="!editingId" class="req">*</span><span v-else> (변경 시 입력)</span></span><input v-model="form.loginId" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
       <label class="fld"><span>비밀번호 <span v-if="!editingId" class="req">*</span><span v-else> (변경 시 입력)</span></span><input v-model="form.password" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
-      <label class="fld"><span>거래처 ID</span><input v-model="form.companyId" /></label>
+      <label class="fld"><span>회사 ID</span><input v-model="form.companyId" /></label>
       <label class="fld"><span>통신사</span><input v-model="form.telecomAgency" /></label>
       <label class="fld"><span>연락처</span><input v-model="form.phone" /></label>
       <label class="fld"><span>그룹 코드</span><input v-model="form.groupCode" /></label>

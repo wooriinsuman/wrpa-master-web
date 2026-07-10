@@ -105,7 +105,7 @@ async function copyKey() {
   <section class="panel">
     <WPageHeader title="워커" desc="RPA 워커 호스트" add-label="+ 워커 등록"
       v-model:search="search" @add="openCreate" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="208">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="rotate(row as WorkerRow)">키 재발급</button>
         <button class="act act--ghost" @click="openEdit(row as WorkerRow)">상세</button>

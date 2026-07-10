@@ -14,7 +14,7 @@ const { push } = useToast()
 const columns: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
   { key: 'insurer', label: '보험사', kind: 'mono' },
-  { key: 'company', label: '거래처', kind: 'mono' },
+  { key: 'company', label: '회사', kind: 'mono' },
   { key: 'account', label: '계정', kind: 'mono' },
   { key: 'runTime', label: '실행시각', kind: 'mono' },
   { key: 'priority', label: '우선순위', kind: 'mono' },
@@ -100,7 +100,7 @@ async function runNow(row: JobRow) {
       <button class="act act--primary" @click="runNow(row)">지금실행</button>
     </template>
     <template #fields>
-      <label class="fld"><span>거래처 ID <span class="req">*</span></span><input v-model="form.companyId" :disabled="!!editingId" /></label>
+      <label class="fld"><span>회사 ID <span class="req">*</span></span><input v-model="form.companyId" :disabled="!!editingId" /></label>
       <label class="fld"><span>계정 ID <span class="req">*</span></span><input v-model="form.accountId" :disabled="!!editingId" /></label>
       <label class="fld"><span>작업 파일 IDs <span class="req">*</span> (쉼표 구분)</span><input v-model="form.workFileIdsText" placeholder="wf1, wf2" /></label>
       <label class="fld"><span>실행시각</span><input v-model="form.runTime" placeholder="09:00" /></label>

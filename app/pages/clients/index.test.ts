@@ -13,6 +13,6 @@ describe('clients page', () => {
     listMock.mockResolvedValue([{ id: '1', name: '로앤손해사정', code: 'LA-01', active: true }])
     const el = await mountSuspended(ClientsPage)
     expect(el.text()).toContain('로앤손해사정')
-    expect(el.text()).toContain('거래처 등록')
+    expect(el.text()).toContain('회사 등록')
   })
 })

@@ -38,7 +38,7 @@ const isActive = (itemRoute: string) => {
     <!-- Operator footer -->
     <div class="operator">
       <div class="operator-role">운영자</div>
-      <div class="operator-name">박지운 · 관제 1팀</div>
+      <div class="operator-name">김희준 · IT사업부</div>
     </div>
   </aside>
 </template>

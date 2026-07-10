@@ -32,7 +32,7 @@ const failedN = useCountUp(computed(() => counts.value.failed))
 const workCols: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
   { key: 'id', label: 'Work ID', kind: 'mono' },
-  { key: 'company', label: '거래처', kind: 'text' },
+  { key: 'company', label: '회사', kind: 'text' },
   { key: 'state', label: '단계', kind: 'text' },
 ]
 const workRows = computed(() => works.value
