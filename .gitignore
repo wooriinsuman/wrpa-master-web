@@ -26,3 +26,4 @@ logs
 
 # Generated types
 shared/types/api.d.ts
+.superpowers
