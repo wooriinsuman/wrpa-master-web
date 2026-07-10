@@ -89,8 +89,8 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
       await config.resource.remove(row.id)
       await refresh()
       push(msg.removed)
-    } catch {
-      push(msg.removeFailed)
+    } catch (e: any) {
+      push(e?.message ?? msg.removeFailed)
     }
   }
 

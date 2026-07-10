@@ -126,11 +126,11 @@ describe('useCrudPage', () => {
     expect(ctl.drawerOpen.value).toBe(true)
   })
 
-  it('remove() toasts the removeFailed message when remove rejects', async () => {
+  it('remove() toasts the error message when remove rejects', async () => {
     const r = makeResource([{ id: '1', name: 'A' }])
     r.remove.mockRejectedValue(new Error('nope'))
     const ctl = await mountWith(r, 't-remove-fail')
     await ctl.remove({ id: '1', name: 'A' })
-    expect(pushMock).toHaveBeenCalledWith('삭제에 실패했습니다.')
+    expect(pushMock).toHaveBeenCalledWith('nope')
   })
 })
