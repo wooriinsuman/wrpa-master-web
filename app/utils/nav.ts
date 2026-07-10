@@ -10,6 +10,7 @@ export const NAV: NavItem[] = [
   { id: 'orderpolicies', code: 'OP', label: '우선순위 정책', route: '/order-policies' },
   { id: 'schedules', code: 'SC', label: '작업 일정', route: '/schedules' },
   { id: 'jobs',      code: 'JB', label: '진행 작업', route: '/jobs' },
+  { id: 'schedulequeue', code: 'SQ', label: '작업 큐', route: '/schedule-queue' },
   { id: 'workers',   code: 'WK', label: '워커',      route: '/workers' },
   { id: 'packages',  code: 'PK', label: '패키지',    route: '/packages' },
   { id: 'users',     code: 'US', label: '사용자',    route: '/users' },

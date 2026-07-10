@@ -70,7 +70,11 @@ const workRows = computed(() => works.value
     </div>
 
     <section class="panel reveal">
-      <div class="panel-head"><h2>진행 중인 작업</h2><span class="muted mono">{{ workRows.length }} running</span></div>
+      <div class="panel-head">
+        <h2>진행 중인 작업</h2>
+        <span class="muted mono">{{ workRows.length }} running</span>
+        <NuxtLink to="/schedule-queue" class="queue-link">작업 큐 →</NuxtLink>
+      </div>
       <WDataTable v-if="workRows.length" :columns="workCols" :rows="workRows">
         <template #actions><span class="muted mono">—</span></template>
       </WDataTable>
@@ -91,6 +95,8 @@ const workRows = computed(() => works.value
 .panel-head h2 { margin: 0; font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--ink); }
 .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--run); box-shadow: 0 0 0 4px rgba(45,125,210,.16), 0 0 10px var(--run); }
 .muted { font-size: 11px; color: var(--ink-2); } .mono { font-family: var(--font-mono); }
+.queue-link { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--run); text-decoration: none; }
+.queue-link:hover { text-decoration: underline; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 14px; }
 .reveal { animation: wrpaRise .4s ease both; }
 @keyframes wrpaRise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
