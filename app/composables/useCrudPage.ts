@@ -1,5 +1,6 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { filterRows, type CrudResource, type CrudRow } from '~/utils/crud'
+import { extractApiError } from '~/utils/apiError'
 
 export interface CrudMessages {
   created: string
@@ -80,7 +81,7 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
       await refresh()
       push(editing ? msg.updated : msg.created)
     } catch (e: any) {
-      push(e?.message ?? msg.saveFailed)
+      push(extractApiError(e, msg.saveFailed))
     }
   }
 
@@ -90,7 +91,7 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
       await refresh()
       push(msg.removed)
     } catch (e: any) {
-      push(e?.message ?? msg.removeFailed)
+      push(extractApiError(e, msg.removeFailed))
     }
   }
 

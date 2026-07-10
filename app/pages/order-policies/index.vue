@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import { categoryLabel } from '~/utils/category'
+import { extractApiError } from '~/utils/apiError'
 import {
   categoryCandidates,
   moveOrder,
@@ -126,7 +127,7 @@ async function save() {
     else await refresh()
     push(editing ? '수정되었습니다.' : '등록되었습니다.')
   } catch (e: any) {
-    push(e?.data?.message ?? '저장에 실패했습니다.')
+    push(extractApiError(e, '저장에 실패했습니다.'))
   }
 }
 
@@ -138,7 +139,7 @@ async function removePolicy(p: View) {
     await refresh()
     push('삭제되었습니다.')
   } catch (e: any) {
-    push(e?.data?.message ?? '삭제에 실패했습니다.')
+    push(extractApiError(e, '삭제에 실패했습니다.'))
   }
 }
 </script>

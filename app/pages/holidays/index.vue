@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
+import { extractApiError } from '~/utils/apiError'
 
 type View = components['schemas']['HolidayView']
 interface HolidayRow { day: string; name: string; source: StatusCell; state: StatusCell; _src: View }
@@ -43,7 +44,7 @@ async function toggle(h: View) {
     await holidays.upsert(h.day, h.name, !h.active)
     await refresh()
   } catch (e: any) {
-    push(e?.data?.message ?? '변경에 실패했습니다.')
+    push(extractApiError(e, '변경에 실패했습니다.'))
   }
 }
 
@@ -54,7 +55,7 @@ async function removeRow(h: View) {
     await refresh()
     push('삭제되었습니다.')
   } catch (e: any) {
-    push(e?.data?.message ?? '삭제에 실패했습니다.')
+    push(extractApiError(e, '삭제에 실패했습니다.'))
   }
 }
 
@@ -78,7 +79,7 @@ async function addManual() {
     await refresh()
     push('등록되었습니다.')
   } catch (e: any) {
-    push(e?.data?.message ?? '등록에 실패했습니다.')
+    push(extractApiError(e, '등록에 실패했습니다.'))
   }
 }
 
@@ -91,7 +92,7 @@ async function syncNow() {
     push(`동기화 완료 — ${res.written}건 반영`)
     await refresh()
   } catch (e: any) {
-    push(e?.data?.message ?? '동기화에 실패했습니다. (API 키 설정을 확인하세요)')
+    push(extractApiError(e, '동기화에 실패했습니다. (API 키 설정을 확인하세요)'))
   } finally {
     syncing.value = false
   }

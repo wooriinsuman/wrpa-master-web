@@ -4,6 +4,7 @@ import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell, StatusKind } from '~/utils/status'
 import { categoryLabel } from '~/utils/category'
+import { extractApiError } from '~/utils/apiError'
 
 type Entry = components['schemas']['ScheduleQueueEntry']
 
@@ -104,7 +105,7 @@ async function savePriority(e: Entry) {
     push('우선순위가 변경되었습니다.')
     await refresh()
   } catch (err: any) {
-    push(err?.data?.message ?? '변경에 실패했습니다. (대기 중 작업만 조정 가능)')
+    push(extractApiError(err, '변경에 실패했습니다. (대기 중 작업만 조정 가능)'))
   }
 }
 
@@ -116,7 +117,7 @@ async function cancelWork(e: Entry) {
     push('취소되었습니다.')
     await refresh()
   } catch (err: any) {
-    push(err?.data?.message ?? '취소에 실패했습니다.')
+    push(extractApiError(err, '취소에 실패했습니다.'))
   }
 }
 </script>

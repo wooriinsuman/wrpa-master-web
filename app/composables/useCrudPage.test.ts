@@ -126,11 +126,19 @@ describe('useCrudPage', () => {
     expect(ctl.drawerOpen.value).toBe(true)
   })
 
-  it('remove() toasts the error message when remove rejects', async () => {
+  it('remove() toasts the error message when remove rejects (plain Error fallback path)', async () => {
     const r = makeResource([{ id: '1', name: 'A' }])
     r.remove.mockRejectedValue(new Error('nope'))
     const ctl = await mountWith(r, 't-remove-fail')
     await ctl.remove({ id: '1', name: 'A' })
     expect(pushMock).toHaveBeenCalledWith('nope')
+  })
+
+  it('remove() prefers the nested backend envelope message over the generic fallback', async () => {
+    const r = makeResource([{ id: '1', name: 'A' }])
+    r.remove.mockRejectedValue({ data: { error: { code: 'conflict', message: '작업파일이 참조 중이라 삭제할 수 없습니다' } } })
+    const ctl = await mountWith(r, 't-remove-fail-envelope')
+    await ctl.remove({ id: '1', name: 'A' })
+    expect(pushMock).toHaveBeenCalledWith('작업파일이 참조 중이라 삭제할 수 없습니다')
   })
 })
