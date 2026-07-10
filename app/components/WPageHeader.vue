@@ -10,6 +10,7 @@ defineEmits<{ add: []; 'update:search': [v: string] }>()
       <div v-if="desc" class="ph-desc">{{ desc }}</div>
     </div>
     <div class="ph-actions">
+      <slot name="header-actions" />
       <input class="ph-search" :value="search" placeholder="검색…"
         @input="$emit('update:search', ($event.target as HTMLInputElement).value)" />
       <button class="add" @click="$emit('add')">{{ addLabel }}</button>

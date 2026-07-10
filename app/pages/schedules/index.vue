@@ -80,7 +80,7 @@ async function runNow(row: JobRow) {
 <template>
   <WCrudPage
     title="작업 일정"
-    desc="예약 job 관리"
+    desc="등록된 일정은 매일 17:00에 다음날 작업으로 자동 생성됩니다 — 생성된 큐는 '작업 큐'에서 확인/조정"
     add-label="+ 일정 등록"
     empty-title="작업 일정이 없습니다"
     :drawer-title="editingId ? '일정 수정' : '일정 등록'"
@@ -96,6 +96,9 @@ async function runNow(row: JobRow) {
     @save="save"
     @remove="remove"
   >
+    <template #header-actions>
+      <NuxtLink class="act" to="/schedule-queue">작업 큐 보기</NuxtLink>
+    </template>
     <template #row-actions-lead="{ row }">
       <button class="act act--primary" @click="runNow(row)">지금실행</button>
     </template>

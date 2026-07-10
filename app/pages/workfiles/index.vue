@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { CrudRow } from '~/utils/crud'
@@ -51,6 +52,9 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
   toForm,
   searchKeys: ['name', 'insurer', 'dataType'],
 })
+
+const { data: dtData } = await useAsyncData('wf-datatypes', () => useDataTypes().list())
+const dataTypeOptions = computed(() => dtData.value ?? [])
 </script>
 
 <template>
@@ -75,7 +79,10 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     <template #fields>
       <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
       <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" placeholder="계약 전체 목록" /></label>
-      <label class="fld"><span>데이터 <span class="req">*</span></span><input v-model="form.dataType" placeholder="contract" /></label>
+      <label class="fld"><span>데이터 유형 <span class="req">*</span></span>
+        <select v-model="form.dataType">
+          <option v-for="d in dataTypeOptions" :key="d.code" :value="d.code">{{ d.name }} ({{ d.code }})</option>
+        </select></label>
       <label class="fld"><span>유형 <span class="req">*</span></span><input v-model="form.fileType" placeholder="list" /></label>
       <label class="fld"><span>보종 <span class="req">*</span></span><input v-model="form.insureType" placeholder="all" /></label>
       <label class="fld"><span>컨텐츠 <span class="req">*</span></span><input v-model="form.contentType" placeholder="a" /></label>

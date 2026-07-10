@@ -30,7 +30,11 @@ const drawerOpen = defineModel<boolean>('drawerOpen', { default: false })
 
 <template>
   <section class="panel">
-    <WPageHeader :title="title" :desc="desc" :add-label="addLabel" v-model:search="search" @add="emit('add')" />
+    <WPageHeader :title="title" :desc="desc" :add-label="addLabel" v-model:search="search" @add="emit('add')">
+      <template #header-actions>
+        <slot name="header-actions" />
+      </template>
+    </WPageHeader>
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="actionsWidth">
       <template #actions="{ row }">
         <slot name="row-actions-lead" :row="(row as Row)" />

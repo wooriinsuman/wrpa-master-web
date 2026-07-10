@@ -1,6 +1,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { h } from 'vue'
 import WPageHeader from './WPageHeader.vue'
 
 describe('WPageHeader', () => {
@@ -14,5 +15,12 @@ describe('WPageHeader', () => {
     const el = await mountSuspended(WPageHeader, { props: { title: 'x', addLabel: 'y', search: '' } })
     await el.find('input').setValue('삼성')
     expect(el.emitted('update:search')?.[0]).toEqual(['삼성'])
+  })
+  it('renders the header-actions slot', async () => {
+    const el = await mountSuspended(WPageHeader, {
+      props: { title: 'x', addLabel: 'y' },
+      slots: { 'header-actions': () => h('a', { class: 'act', href: '/foo' }, '바로가기') },
+    })
+    expect(el.text()).toContain('바로가기')
   })
 })

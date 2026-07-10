@@ -5,13 +5,18 @@ import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
 import { workStateKind } from '~/utils/dashboardState'
 import { blankWorkForm, type WorkForm } from '~/utils/workForm'
+import { categoryLabel } from '~/utils/category'
 
 type WorkView = components['schemas']['WorkView']
-interface WorkRow { id: string; status: StatusCell; company: string; tasks: string; state: string }
+interface WorkRow { id: string; status: StatusCell; company: string; tasks: string; state: string; category: string }
 
 const works = useWorks()
+const dataTypes = useDataTypes()
 const { push } = useToast()
 const { data, refresh, pending } = await useAsyncData('works', () => works.list())
+const { data: dtData } = await useAsyncData('works-datatypes', () => dataTypes.list())
+const dataTypeNames = computed<Record<string, string>>(() =>
+  Object.fromEntries((dtData.value ?? []).map(d => [d.code, d.name])))
 
 const search = ref('')
 const rows = computed<WorkRow[]>(() => {
@@ -21,6 +26,7 @@ const rows = computed<WorkRow[]>(() => {
     company: w.company,
     tasks: (w.tasks ?? []).join(', ') || '—',
     state: w.state,
+    category: categoryLabel(w.category ?? '', dataTypeNames.value),
   }))
   const q = search.value.trim().toLowerCase()
   return q ? list.filter(r => [r.company, r.state, r.tasks].some(x => String(x).toLowerCase().includes(q))) : list
@@ -29,6 +35,7 @@ const rows = computed<WorkRow[]>(() => {
 const columns: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
   { key: 'company', label: '보험사', kind: 'mono' },
+  { key: 'category', label: '카테고리', kind: 'mono' },
   { key: 'tasks', label: '태스크', kind: 'text' },
   { key: 'id', label: '실행 ID', kind: 'muted' },
 ]

@@ -15,4 +15,12 @@ describe('schedules page', () => {
     expect(el.text()).toContain('c1')
     expect(el.text()).toContain('일정 등록')
   })
+
+  it('explains auto-generation and links to the schedule queue screen', async () => {
+    listMock.mockResolvedValue([])
+    const el = await mountSuspended(SchedulesPage)
+    expect(el.text()).toContain('매일 17:00에 다음날 작업으로 자동 생성됩니다')
+    expect(el.text()).toContain('작업 큐 보기')
+    expect(el.find('a[href="/schedule-queue"]').exists()).toBe(true)
+  })
 })

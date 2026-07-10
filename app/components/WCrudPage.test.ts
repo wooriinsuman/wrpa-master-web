@@ -44,4 +44,12 @@ describe('WCrudPage', () => {
     await add.trigger('click')
     expect(el.emitted('add')).toBeTruthy()
   })
+
+  it('forwards the header-actions slot into WPageHeader', async () => {
+    const el = await mountSuspended(WCrudPage, {
+      props: base,
+      slots: { 'header-actions': () => h('a', { class: 'act', href: '/schedule-queue' }, '작업 큐 보기') },
+    })
+    expect(el.text()).toContain('작업 큐 보기')
+  })
 })
