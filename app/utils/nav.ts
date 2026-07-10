@@ -5,6 +5,7 @@ export const NAV: NavItem[] = [
   { id: 'clients',   code: 'CL', label: '회사',   route: '/clients' },
   { id: 'accounts',  code: 'AC', label: '계정',     route: '/accounts' },
   { id: 'datatypes', code: 'DT', label: '데이터 유형', route: '/data-types' },
+  { id: 'holidays',  code: 'HD', label: '휴일',       route: '/holidays' },
   { id: 'workfiles', code: 'WF', label: '작업 파일', route: '/workfiles' },
   { id: 'schedules', code: 'SC', label: '작업 일정', route: '/schedules' },
   { id: 'jobs',      code: 'JB', label: '진행 작업', route: '/jobs' },
