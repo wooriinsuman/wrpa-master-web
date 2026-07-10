@@ -7,6 +7,7 @@ export const NAV: NavItem[] = [
   { id: 'datatypes', code: 'DT', label: '데이터 유형', route: '/data-types' },
   { id: 'holidays',  code: 'HD', label: '휴일',       route: '/holidays' },
   { id: 'workfiles', code: 'WF', label: '작업 파일', route: '/workfiles' },
+  { id: 'orderpolicies', code: 'OP', label: '우선순위 정책', route: '/order-policies' },
   { id: 'schedules', code: 'SC', label: '작업 일정', route: '/schedules' },
   { id: 'jobs',      code: 'JB', label: '진행 작업', route: '/jobs' },
   { id: 'workers',   code: 'WK', label: '워커',      route: '/workers' },
