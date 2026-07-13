@@ -7,6 +7,7 @@ defineProps<{ cells: FleetCell[] }>()
 const SERIES: Record<StatusKind, number[]> = {
   run: [.4,.72,.5,.86,.6,.9,.55,.78], done: [.5,.62,.56,.66,.6,.7,.63,.61],
   idle: [.3,.28,.33,.29,.31,.27,.3,.28], fail: [.62,.55,.4,.3,.16,.09,.05,.04],
+  warn: [.5,.44,.52,.4,.5,.42,.48,.44],
 }
 function spark(kind: StatusKind): string {
   const arr = SERIES[kind]
@@ -41,16 +42,18 @@ function spark(kind: StatusKind): string {
 .pulse { transform-origin: center; animation: wrpaPulse 1.6s ease-out infinite; }
 .pulse--run { background: var(--run); } .pulse--done { background: var(--done); }
 .pulse--idle { background: var(--idle); animation-duration: 3s; } .pulse--fail { background: var(--fail); }
+.pulse--warn { background: var(--warn); }
 .core--run { background: var(--run); box-shadow: 0 0 8px var(--run); }
 .core--done { background: var(--done); box-shadow: 0 0 8px var(--done); }
 .core--idle { background: var(--idle); box-shadow: 0 0 8px var(--idle); }
 .core--fail { background: var(--fail); box-shadow: 0 0 8px var(--fail); }
+.core--warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
 .age { font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
-.age--done { color: var(--done); } .age--idle { color: var(--ink-2); } .age--fail { color: var(--fail); } .age--run { color: var(--run); }
+.age--done { color: var(--done); } .age--idle { color: var(--ink-2); } .age--fail { color: var(--fail); } .age--run { color: var(--run); } .age--warn { color: var(--warn); }
 .key { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink); }
 .sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spark { display: block; margin-top: 8px; overflow: visible; opacity: .8; }
-.stroke--run { stroke: var(--run); } .stroke--done { stroke: var(--done); } .stroke--idle { stroke: var(--idle); } .stroke--fail { stroke: var(--fail); }
+.stroke--run { stroke: var(--run); } .stroke--done { stroke: var(--done); } .stroke--idle { stroke: var(--idle); } .stroke--fail { stroke: var(--fail); } .stroke--warn { stroke: var(--warn); }
 @keyframes wrpaPulse { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(3.4); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } .cell { transition: none; } }
 </style>

@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import type { Column } from '~/components/WDataTable.vue'
 import type { FleetCell } from '~/components/FleetStrip.vue'
 import type { StatusCell } from '~/utils/status'
-import { workerStateKind, workStateKind, formatAge, ageColorKind } from '~/utils/dashboardState'
+import { workerStateKind, workStateKind, formatAge, ageColorKind, msToSec } from '~/utils/dashboardState'
 
 const { workers, works, pending } = useDashboard()
 const nowSec = Math.floor((globalThis.Date?.now?.() ?? 0) / 1000)
@@ -12,8 +12,8 @@ const nowSec = Math.floor((globalThis.Date?.now?.() ?? 0) / 1000)
 const cells = computed<FleetCell[]>(() => workers.value.map(w => ({
   key: w.name,
   kind: workerStateKind(w.state),
-  age: formatAge(w.lastConnectedAt ?? undefined, nowSec),
-  ageKind: ageColorKind(w.lastConnectedAt ?? undefined, nowSec),
+  age: formatAge(msToSec(w.lastConnectedAt || undefined), nowSec),
+  ageKind: ageColorKind(msToSec(w.lastConnectedAt || undefined), nowSec),
   sub: w.host || w.state || '—',
 })))
 

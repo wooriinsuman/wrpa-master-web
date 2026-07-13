@@ -123,11 +123,12 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
             <WStatusBadge v-if="isStatusCell(row[c.key])" :label="row[c.key].label" :kind="row[c.key].kind" />
             <WStatusBadge v-else :label="String(row[c.key])" />
           </template>
-          <!-- chips: array → wrapping pills (all shown, never truncated);
+          <!-- chips: array → equal-width pills on an aligned grid; a name too long
+               for its column is ellipsis-truncated (full name on hover / dialog).
                string → muted text (e.g. a "배정 안됨" placeholder). -->
           <template v-else-if="c.kind === 'chips'">
             <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
-              <span v-for="(chip, ci) in row[c.key]" :key="ci" class="dt-chip">{{ chip }}</span>
+              <span v-for="(chip, ci) in row[c.key]" :key="ci" class="dt-chip"><span class="dt-chip-t" :title="chip">{{ chip }}</span></span>
             </template>
             <span v-else class="dt-chip-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
           </template>
@@ -159,9 +160,19 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
 .dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-align: center; }
 .dt-td--mono { font-family: var(--font-mono); }
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
-/* chips cell: wrap all values onto multiple lines, never truncate. */
-.dt-td--chips { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; white-space: normal; overflow: visible; text-overflow: clip; }
-.dt-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--th); border: 1px solid var(--line); font-size: 11.5px; color: var(--ink); white-space: nowrap; }
+/* chips cell: equal-width pills on an aligned grid — rows & columns line up,
+   the group is centered (auto-fit collapses empty tracks so justify-content
+   can center), and pills never wrap. A pill's track grows to fit its text
+   (max-content) but is capped by the cell width; when the name is longer than
+   the available track it is ellipsis-truncated inside the pill (full name is
+   shown in the assignment dialog). */
+.dt-td--chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(74px, max-content)); justify-content: center; align-items: center; gap: 4px; white-space: normal; overflow: visible; text-overflow: clip; }
+/* pill is stretched to its (equal-width) column and centers its label; the inner
+   label owns the ellipsis so truncation is start-anchored and reliable across
+   browsers, keeping the pill's padding intact instead of letting text bleed to
+   the border. */
+.dt-chip { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 2px 8px; border-radius: 999px; background: var(--th); border: 1px solid var(--line); font-size: 11.5px; color: var(--ink); }
+.dt-chip-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dt-chip-empty { font-size: 12px; color: var(--ink-2); }
 /* Must follow `.dt-td` so `flex: none` wins over the base `flex: 1` and the
    № column keeps its fixed width (matching the `.dt-idx-h` header). */

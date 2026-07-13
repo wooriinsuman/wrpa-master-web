@@ -5,7 +5,7 @@
   --rim:inset 0 1px 0 rgba(255,255,255,.75);
   --elev:0 1px 2px rgba(16,24,40,.05),0 10px 26px rgba(16,24,40,.07);
   --elev-hi:0 3px 8px rgba(16,24,40,.08),0 18px 40px rgba(16,24,40,.15);
-  --run:#2D7DD2; --idle:#8896A6; --fail:#E0533D; --done:#2FA36B;
+  --run:#2D7DD2; --idle:#8896A6; --fail:#E0533D; --done:#2FA36B; --warn:#E8912A;
   --on-accent:#FFFFFF;
   --run-shadow:rgba(45,125,210,.3);
   /* form fields (DS) */

@@ -14,4 +14,5 @@ const kind = computed<StatusKind>(() => props.kind ?? labelToKind(props.label))
 .badge--idle { background: rgba(136,150,166,.18); color: var(--idle); }
 .badge--fail { background: rgba(224,83,61,.14);   color: var(--fail); }
 .badge--done { background: rgba(47,163,107,.15);  color: var(--done); }
+.badge--warn { background: rgba(232,145,42,.15);  color: var(--warn); }
 </style>

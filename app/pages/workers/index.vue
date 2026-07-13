@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
-import { workerStateKind } from '~/utils/dashboardState'
-import { workerTypeLabel, workerStateLabel } from '~/utils/workerForm'
+import { formatSince, livenessCell, msToSec } from '~/utils/dashboardState'
+import { workerTypeLabel } from '~/utils/workerForm'
 
 type WorkerView = components['schemas']['WorkerView']
 
@@ -16,8 +16,10 @@ interface WorkerRow {
   companiesTitle: string
   insurers: string[] // 배정 보험사명 배열 (빈 배열 → '—')
   insurersTitle: string
-  host: string
+  host: string // 드로어 읽기전용 표시용(호스트명 단독)
+  hostIp: string // 테이블 표기용 "호스트/IP" 합본
   hid: StatusCell
+  lastSeen: StatusCell
   status: StatusCell
   companyIds: string[]
   insurerIds: string[]
@@ -43,6 +45,15 @@ function hidCell(health: number, total: number): StatusCell {
   return { label: total > 1 ? `이상 ${health}/${total}` : '끊김', kind: 'fail' }
 }
 
+// 상대시간·라이브니스 기준 시각. 화면을 열어둔 채로도 시간이 흐르며 판정이 갱신되도록
+// 클라이언트에서 주기적으로 갱신한다(하트비트 주기와 맞춰 5초). SSR/초기값은 setup 시점.
+const nowSec = ref(Math.floor((globalThis.Date?.now?.() ?? 0) / 1000))
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => { nowSec.value = Math.floor((globalThis.Date?.now?.() ?? 0) / 1000) }, 5000)
+})
+onUnmounted(() => { if (clock) clearInterval(clock) })
+
 const search = ref('')
 const rows = computed<WorkerRow[]>(() => {
   const list: WorkerRow[] = (data.value ?? []).map((w: WorkerView) => {
@@ -50,6 +61,9 @@ const rows = computed<WorkerRow[]>(() => {
     const insurerIds = w.insurerIds ?? []
     const companyNames = namesOf(companyIds, clientName.value)
     const insurerNames = namesOf(insurerIds, insurerName.value)
+    // 0/누락은 '미접속'으로 취급(|| undefined) — 0을 넘기면 1970년 기준 상대시간이 찍힘.
+    const lastSec = msToSec(w.lastConnectedAt || undefined)
+    const live = livenessCell(lastSec, nowSec.value)
     return {
       id: w.id,
       name: w.name,
@@ -59,16 +73,21 @@ const rows = computed<WorkerRow[]>(() => {
       companiesTitle: companyNames.join(', '),
       insurers: insurerNames,
       insurersTitle: insurerNames.join(', '),
-      host: w.host ?? w.ip ?? '—',
+      host: w.host ?? '—',
+      // 호스트명/IP를 한 칸에. 하나만 있으면 그것만, 둘 다 없으면 '—'.
+      hostIp: [w.host, w.ip].filter(Boolean).join('/') || '—',
       hid: hidCell(w.hidHealthCount, w.hidTotalCount),
-      status: { label: workerStateLabel(w.state), kind: workerStateKind(w.state) },
+      lastSeen: { label: formatSince(lastSec, nowSec.value), kind: live.kind },
+      // 상태는 워커가 보고한 state 대신 last-seen 파생 생사(온라인/지연/오프라인).
+      // 하드 크래시 시 보고 state는 최대 5분 얼어붙어 신뢰할 수 없기 때문.
+      status: live,
       companyIds,
       insurerIds,
     }
   })
   const q = search.value.trim().toLowerCase()
   return q
-    ? list.filter(r => [r.name, r.type, r.companiesTitle, r.insurersTitle, r.status.label].some(x => x.toLowerCase().includes(q)))
+    ? list.filter(r => [r.name, r.type, r.companiesTitle, r.insurersTitle, r.hostIp, r.status.label].some(x => x.toLowerCase().includes(q)))
     : list
 })
 
@@ -77,8 +96,9 @@ const columns: Column[] = [
   { key: 'type', label: '유형', kind: 'text' },
   { key: 'companies', label: '회사', kind: 'chips', sortable: false },
   { key: 'insurers', label: '보험사', kind: 'chips', sortable: false, weight: 2.4 },
-  { key: 'host', label: '호스트', kind: 'muted' },
+  { key: 'hostIp', label: '호스트/IP', kind: 'muted' },
   { key: 'hid', label: 'HID', kind: 'status' },
+  { key: 'lastSeen', label: '최근 접속', kind: 'status', sortable: false },
   { key: 'status', label: '상태', kind: 'status' },
 ]
 
@@ -125,9 +145,9 @@ async function save() {
     await syncSet(row.id, origInsurers, insurerIds.value, workers.assignInsurer, workers.removeInsurer)
     crudOpen.value = false
     await refresh()
-    push('배정이 저장되었습니다.')
+    push('배정이 저장되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.message ?? '저장에 실패했습니다.')
+    push(e?.message ?? '저장에 실패했습니다.', 'error')
   }
 }
 
@@ -144,9 +164,9 @@ async function confirmRemove() {
   try {
     await workers.remove(row.id)
     await refresh()
-    push('삭제되었습니다.')
+    push('삭제되었습니다.', 'success')
   } catch {
-    push('삭제에 실패했습니다.')
+    push('삭제에 실패했습니다.', 'error')
   }
 }
 
@@ -155,7 +175,7 @@ async function rotate(row: WorkerRow) {
     const res = await workers.rotateKey(row.id)
     revealKey(res.apiKey)
   } catch {
-    push('키 재발급에 실패했습니다.')
+    push('키 재발급에 실패했습니다.', 'error')
   }
 }
 
@@ -169,9 +189,9 @@ function revealKey(key: string) {
 async function copyKey() {
   try {
     await navigator.clipboard.writeText(revealedKey.value)
-    push('복사되었습니다.')
+    push('복사되었습니다.', 'success')
   } catch {
-    push('복사에 실패했습니다. 키를 직접 선택해 복사하세요.')
+    push('복사에 실패했습니다. 키를 직접 선택해 복사하세요.', 'error')
   }
 }
 </script>
@@ -198,10 +218,10 @@ async function copyKey() {
       </div>
 
       <div class="fld">
-        <span>회사 <small class="hint">선택 안 하면 전체 회사 허용</small></span>
+        <span>회사 <small class="hint">선택 안 하면 어느 회사에도 속하지 않아 작업을 받지 않음</small></span>
         <div class="chips">
           <button v-for="c in clients ?? []" :key="c.id" type="button" class="chip"
-            :class="{ 'chip--on': companyIds.includes(c.id) }" @click="toggleCompany(c.id)">{{ c.name }}</button>
+            :class="{ 'chip--on': companyIds.includes(c.id) }" @click="toggleCompany(c.id)"><span class="chip-t" :title="c.name">{{ c.name }}</span></button>
           <span v-if="!(clients ?? []).length" class="chips-empty">회사 없음</span>
         </div>
       </div>
@@ -210,7 +230,7 @@ async function copyKey() {
         <span>보험사</span>
         <div class="chips">
           <button v-for="i in insurers ?? []" :key="i.id" type="button" class="chip"
-            :class="{ 'chip--on': insurerIds.includes(i.id) }" @click="toggleInsurer(i.id)">{{ i.name }}</button>
+            :class="{ 'chip--on': insurerIds.includes(i.id) }" @click="toggleInsurer(i.id)"><span class="chip-t" :title="i.name">{{ i.name }}</span></button>
           <span v-if="!(insurers ?? []).length" class="chips-empty">보험사 없음</span>
         </div>
       </div>
@@ -248,9 +268,14 @@ async function copyKey() {
 .ro-item .mono { font-family: var(--font-mono); font-size: 12px; }
 
 .hint { font-weight: 400; color: var(--ink-2); font-size: 11px; margin-left: 6px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips-empty { font-size: 12px; color: var(--ink-2); }
-.chip { padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); font-size: 12.5px; cursor: pointer; transition: all .12s ease; }
+/* equal-width chips on an aligned grid so rows & columns line up; chips stay on
+   a single line. A name too long for its column is ellipsis-truncated inside the
+   button (full name on hover) instead of bleeding into the padding — the inner
+   label owns the ellipsis so the button's padding stays intact. */
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 6px; }
+.chips-empty { font-size: 12px; color: var(--ink-2); grid-column: 1 / -1; }
+.chip { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); font-size: 12.5px; cursor: pointer; transition: all .12s ease; }
+.chip-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip:hover { border-color: var(--run); color: var(--ink); }
 .chip--on { background: var(--nav-active); border-color: var(--run); color: var(--run); font-weight: 600; }
 </style>
