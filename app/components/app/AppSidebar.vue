@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NAV } from '~/utils/nav'
+import { NAV_GROUPS } from '~/utils/nav'
 
 const route = useRoute()
 const isActive = (itemRoute: string) => {
@@ -20,19 +19,22 @@ const isActive = (itemRoute: string) => {
       </div>
     </div>
 
-    <!-- Navigation -->
+    <!-- Navigation (grouped) -->
     <nav class="nav">
-      <NuxtLink
-        v-for="item in NAV"
-        :key="item.id"
-        :to="item.route"
-        class="nav-item"
-        :class="{ 'nav-item--active': isActive(item.route) }"
-      >
-        <span class="nav-bar" />
-        <span class="nav-code">{{ item.code }}</span>
-        <span class="nav-label">{{ item.label }}</span>
-      </NuxtLink>
+      <div v-for="group in NAV_GROUPS" :key="group.label" class="nav-group">
+        <div class="nav-group-label">{{ group.label }}</div>
+        <NuxtLink
+          v-for="item in group.items"
+          :key="item.id"
+          :to="item.route"
+          class="nav-item"
+          :class="{ 'nav-item--active': isActive(item.route) }"
+        >
+          <span class="nav-bar" />
+          <span class="nav-code">{{ item.code }}</span>
+          <span class="nav-label">{{ item.label }}</span>
+        </NuxtLink>
+      </div>
     </nav>
 
     <!-- Operator footer -->
@@ -107,7 +109,26 @@ const isActive = (itemRoute: string) => {
 .nav {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
+}
+
+.nav-group-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  opacity: 0.65;
+  padding: 2px 9px 4px;
 }
 
 .nav-item {
@@ -228,6 +249,17 @@ const isActive = (itemRoute: string) => {
   .nav {
     flex-direction: row !important;
     gap: 4px !important;
+    overflow-y: visible;
+  }
+
+  /* Flatten groups into the single scrollable row; hide section headers */
+  .nav-group {
+    flex-direction: row !important;
+    gap: 4px !important;
+  }
+
+  .nav-group-label {
+    display: none !important;
   }
 
   .nav-label {
