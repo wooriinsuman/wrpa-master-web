@@ -79,9 +79,9 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
       drawerOpen.value = false
       editingId.value = null
       await refresh()
-      push(editing ? msg.updated : msg.created)
+      push(editing ? msg.updated : msg.created, 'success')
     } catch (e: any) {
-      push(extractApiError(e, msg.saveFailed))
+      push(extractApiError(e, msg.saveFailed), 'error')
     }
   }
 
@@ -89,9 +89,9 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
     try {
       await config.resource.remove(row.id)
       await refresh()
-      push(msg.removed)
+      push(msg.removed, 'success')
     } catch (e: any) {
-      push(extractApiError(e, msg.removeFailed))
+      push(extractApiError(e, msg.removeFailed), 'error')
     }
   }
 

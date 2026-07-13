@@ -61,7 +61,7 @@ describe('useCrudPage', () => {
     await ctl.save()
     expect(r.create).toHaveBeenCalledWith({ name: 'New' })
     expect(ctl.drawerOpen.value).toBe(false)
-    expect(pushMock).toHaveBeenCalledWith('등록되었습니다.')
+    expect(pushMock).toHaveBeenCalledWith('등록되었습니다.', 'success')
   })
 
   it('openEdit maps the entity through toForm and save() updates', async () => {
@@ -72,7 +72,7 @@ describe('useCrudPage', () => {
     expect(ctl.form.value).toEqual({ name: 'Old' })
     await ctl.save()
     expect(r.update).toHaveBeenCalledWith('7', { name: 'Old' })
-    expect(pushMock).toHaveBeenCalledWith('수정되었습니다.')
+    expect(pushMock).toHaveBeenCalledWith('수정되었습니다.', 'success')
   })
 
   it('remove() calls resource.remove and toasts removed', async () => {
@@ -80,7 +80,7 @@ describe('useCrudPage', () => {
     const ctl = await mountWith(r, 't-remove')
     await ctl.remove({ id: '1', name: 'A' })
     expect(r.remove).toHaveBeenCalledWith('1')
-    expect(pushMock).toHaveBeenCalledWith('삭제되었습니다.')
+    expect(pushMock).toHaveBeenCalledWith('삭제되었습니다.', 'success')
   })
 
   it('openEdit is a no-op when toForm is absent', async () => {
@@ -112,7 +112,7 @@ describe('useCrudPage', () => {
     await ctl.save()
     expect(r.update).toHaveBeenCalledWith('7', { name: 'Old' })
     expect(ctl.editingId.value).toBe(null)
-    expect(pushMock).toHaveBeenCalledWith('수정되었습니다.')
+    expect(pushMock).toHaveBeenCalledWith('수정되었습니다.', 'success')
   })
 
   it('save() toasts the error message and keeps the drawer open when create rejects', async () => {
@@ -122,7 +122,7 @@ describe('useCrudPage', () => {
     ctl.openCreate()
     ctl.form.value = { name: 'X' }
     await ctl.save()
-    expect(pushMock).toHaveBeenCalledWith('서버 오류')
+    expect(pushMock).toHaveBeenCalledWith('서버 오류', 'error')
     expect(ctl.drawerOpen.value).toBe(true)
   })
 
@@ -131,7 +131,7 @@ describe('useCrudPage', () => {
     r.remove.mockRejectedValue(new Error('nope'))
     const ctl = await mountWith(r, 't-remove-fail')
     await ctl.remove({ id: '1', name: 'A' })
-    expect(pushMock).toHaveBeenCalledWith('nope')
+    expect(pushMock).toHaveBeenCalledWith('nope', 'error')
   })
 
   it('remove() prefers the nested backend envelope message over the generic fallback', async () => {
@@ -139,6 +139,6 @@ describe('useCrudPage', () => {
     r.remove.mockRejectedValue({ data: { error: { code: 'conflict', message: '작업파일이 참조 중이라 삭제할 수 없습니다' } } })
     const ctl = await mountWith(r, 't-remove-fail-envelope')
     await ctl.remove({ id: '1', name: 'A' })
-    expect(pushMock).toHaveBeenCalledWith('작업파일이 참조 중이라 삭제할 수 없습니다')
+    expect(pushMock).toHaveBeenCalledWith('작업파일이 참조 중이라 삭제할 수 없습니다', 'error')
   })
 })

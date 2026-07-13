@@ -69,12 +69,12 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
   })
 
 async function runLock(row: AccountRow) {
-  try { await accounts.lock(row.id); await refresh(); push('계정을 잠갔습니다.') }
-  catch { push('잠금에 실패했습니다.') }
+  try { await accounts.lock(row.id); await refresh(); push('계정을 잠갔습니다.', 'success') }
+  catch { push('잠금에 실패했습니다.', 'error') }
 }
 async function runUnlock(row: AccountRow) {
-  try { await accounts.unlock(row.id); await refresh(); push('잠금을 해제했습니다.') }
-  catch { push('잠금 해제에 실패했습니다.') }
+  try { await accounts.unlock(row.id); await refresh(); push('잠금을 해제했습니다.', 'success') }
+  catch { push('잠금 해제에 실패했습니다.', 'error') }
 }
 </script>
 

@@ -70,9 +70,9 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
 async function runNow(row: JobRow) {
   try {
     const r = await jobs.run(row.id)
-    push(`실행되었습니다 · ${r.workId}`)
+    push(`실행되었습니다 · ${r.workId}`, 'success')
   } catch {
-    push('실행에 실패했습니다.')
+    push('실행에 실패했습니다.', 'error')
   }
 }
 </script>

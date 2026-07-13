@@ -45,7 +45,7 @@ async function toggle(h: View) {
     await holidays.upsert(h.day, h.name, !h.active)
     await refresh()
   } catch (e: any) {
-    push(extractApiError(e, '변경에 실패했습니다.'))
+    push(extractApiError(e, '변경에 실패했습니다.'), 'error')
   }
 }
 
@@ -63,9 +63,9 @@ async function doRemove() {
   try {
     await holidays.remove(h.day)
     await refresh()
-    push('삭제되었습니다.')
+    push('삭제되었습니다.', 'success')
   } catch (e: any) {
-    push(extractApiError(e, '삭제에 실패했습니다.'))
+    push(extractApiError(e, '삭제에 실패했습니다.'), 'error')
   }
 }
 
@@ -87,9 +87,9 @@ async function addManual() {
     await holidays.upsert(newDay.value, newName.value.trim(), true)
     addOpen.value = false
     await refresh()
-    push('등록되었습니다.')
+    push('등록되었습니다.', 'success')
   } catch (e: any) {
-    push(extractApiError(e, '등록에 실패했습니다.'))
+    push(extractApiError(e, '등록에 실패했습니다.'), 'error')
   }
 }
 
@@ -99,10 +99,10 @@ async function syncNow() {
   syncing.value = true
   try {
     const res = await holidays.sync()
-    push(`동기화 완료 — ${res.written}건 반영`)
+    push(`동기화 완료 — ${res.written}건 반영`, 'success')
     await refresh()
   } catch (e: any) {
-    push(extractApiError(e, '동기화에 실패했습니다. (API 키 설정을 확인하세요)'))
+    push(extractApiError(e, '동기화에 실패했습니다. (API 키 설정을 확인하세요)'), 'error')
   } finally {
     syncing.value = false
   }

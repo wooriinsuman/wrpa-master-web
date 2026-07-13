@@ -55,9 +55,9 @@ async function save() {
     await users.create(form.value)
     drawerOpen.value = false
     await refresh()
-    push('등록되었습니다.')
+    push('등록되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.message ?? '저장에 실패했습니다.')
+    push(e?.message ?? '저장에 실패했습니다.', 'error')
   }
 }
 </script>

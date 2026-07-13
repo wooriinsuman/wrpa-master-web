@@ -102,10 +102,10 @@ async function savePriority(e: Entry) {
   if (p === undefined || p === e.priority) return
   try {
     await queue.setPriority(e.workId, p)
-    push('우선순위가 변경되었습니다.')
+    push('우선순위가 변경되었습니다.', 'success')
     await refresh()
   } catch (err: any) {
-    push(extractApiError(err, '변경에 실패했습니다. (대기 중 작업만 조정 가능)'))
+    push(extractApiError(err, '변경에 실패했습니다. (대기 중 작업만 조정 가능)'), 'error')
   }
 }
 
@@ -114,10 +114,10 @@ async function cancelWork(e: Entry) {
   if (!confirm('이 작업을 취소할까요?')) return
   try {
     await queue.cancel(e.workId)
-    push('취소되었습니다.')
+    push('취소되었습니다.', 'success')
     await refresh()
   } catch (err: any) {
-    push(extractApiError(err, '취소에 실패했습니다.'))
+    push(extractApiError(err, '취소에 실패했습니다.'), 'error')
   }
 }
 </script>

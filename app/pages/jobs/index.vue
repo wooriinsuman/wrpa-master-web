@@ -52,9 +52,9 @@ async function submitEnqueue() {
     await works.enqueue(form.value)
     enqueueOpen.value = false
     await refresh()
-    push('작업을 실행했습니다.')
+    push('작업을 실행했습니다.', 'success')
   } catch (e: any) {
-    push(e?.message ?? '작업 실행에 실패했습니다.')
+    push(e?.message ?? '작업 실행에 실패했습니다.', 'error')
   }
 }
 

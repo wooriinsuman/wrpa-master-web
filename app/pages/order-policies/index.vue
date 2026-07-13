@@ -125,9 +125,9 @@ async function save() {
     // 다른 회사로 등록/이동했을 수 있으니 목록 스코프를 폼의 회사로 맞춘다.
     if (companyId.value !== form.value.companyId) companyId.value = form.value.companyId
     else await refresh()
-    push(editing ? '수정되었습니다.' : '등록되었습니다.')
+    push(editing ? '수정되었습니다.' : '등록되었습니다.', 'success')
   } catch (e: any) {
-    push(extractApiError(e, '저장에 실패했습니다.'))
+    push(extractApiError(e, '저장에 실패했습니다.'), 'error')
   }
 }
 
@@ -137,9 +137,9 @@ async function removePolicy(p: View) {
   try {
     await orderPolicies.remove(p.id)
     await refresh()
-    push('삭제되었습니다.')
+    push('삭제되었습니다.', 'success')
   } catch (e: any) {
-    push(extractApiError(e, '삭제에 실패했습니다.'))
+    push(extractApiError(e, '삭제에 실패했습니다.'), 'error')
   }
 }
 </script>
