@@ -18,6 +18,12 @@ export function usePackages() {
     // DELETE /api/packages/{name}/{version} — removes the blob, repairs latest.
     remove: (p: PackageMeta) =>
       api(`/packages/${encodeURIComponent(p.name)}/${encodeURIComponent(p.version)}`, { method: 'DELETE' }),
+    // PUT /api/packages/{name}/{version}/latest — 이 버전을 배포(latest)로 재지정. 구버전 롤백도 가능.
+    setLatest: (p: PackageMeta) =>
+      api(`/packages/${encodeURIComponent(p.name)}/${encodeURIComponent(p.version)}/latest`, { method: 'PUT' }),
+    // DELETE /api/packages/{name}/latest — 배포 해제(어느 버전도 배포하지 않음). 버전은 보존.
+    clearLatest: (name: string) =>
+      api(`/packages/${encodeURIComponent(name)}/latest`, { method: 'DELETE' }),
     // POST multipart to the dedicated upload proxy route.
     upload: (file: File, name: string, version: string) => {
       const form = new FormData()

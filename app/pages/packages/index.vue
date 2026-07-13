@@ -1,83 +1,171 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { Column } from '~/components/WDataTable.vue'
-import type { StatusCell } from '~/utils/status'
 import type { PackageMeta } from '~/composables/usePackages'
+import type { AssetManifestMeta, AssetManifestDoc } from '~/composables/useAssets'
+import type { AccordionGroup } from '~/components/WPackageAccordion.vue'
+import { fmtSize, fmtDate } from '~/utils/format'
 
 const packages = usePackages()
+const assets = useAssets()
 const { push } = useToast()
 const { data, refresh, pending } = await useAsyncData('packages', () => packages.list())
+const { data: assetData, refresh: refreshAssets } = await useAsyncData('asset-manifests', () => assets.list())
 
-function fmtSize(bytes: number): string {
-  if (!bytes) return '—'
-  const u = ['B', 'KB', 'MB', 'GB']
-  let n = bytes, i = 0
-  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++ }
-  return `${n.toFixed(i ? 1 : 0)} ${u[i]}`
-}
-
-function fmtDate(iso: string): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('ko-KR')
+async function refreshAll() {
+  await Promise.all([refresh(), refreshAssets()])
 }
 
 const search = ref('')
-const list = computed<PackageMeta[]>(() => data.value ?? [])
 
-interface PackageRow {
-  name: string
-  status: StatusCell
-  version: string
-  size: string
-  created: string
-  _src: PackageMeta
-}
-
-// Group by package name (sorted), versions newest-first within each group, and
-// blank the name on every row but the group's first so the table reads grouped.
-const rows = computed<PackageRow[]>(() => {
+// 패키지 그룹 + 에셋 그룹을 하나의 아코디언으로. 패키지는 이름별로 묶고 각 그룹은
+// 버전 최신순, 에셋은 매니페스트 버전 단일 스트림.
+const groups = computed<AccordionGroup[]>(() => {
   const q = search.value.trim().toLowerCase()
-  const filtered = q
-    ? list.value.filter(p => [p.name, p.version].some(x => x.toLowerCase().includes(q)))
-    : list.value
 
+  // --- 패키지 그룹 ---
+  const pkgList = (data.value ?? []).filter(p =>
+    !q || [p.name, p.version].some(x => x.toLowerCase().includes(q)))
   const byName = new Map<string, PackageMeta[]>()
-  for (const p of filtered) {
+  for (const p of pkgList) {
     const arr = byName.get(p.name) ?? []
     arr.push(p)
     byName.set(p.name, arr)
   }
-
-  const out: PackageRow[] = []
-  for (const name of [...byName.keys()].sort()) {
+  const pkgGroups: AccordionGroup[] = [...byName.keys()].sort().map((name) => {
     const versions = byName.get(name)!.slice()
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))
-    versions.forEach((p, i) => {
-      out.push({
-        name: i === 0 ? name : '',
-        status: p.latest
-          ? { label: '최신', kind: 'done' } as StatusCell
-          : { label: '이전', kind: 'idle' } as StatusCell,
-        version: p.version,
-        size: fmtSize(p.size),
-        created: fmtDate(p.createdAt),
-        _src: p,
-      })
-    })
-  }
-  return out
+    return {
+      kind: 'package' as const,
+      name,
+      deployedVersion: versions.find(p => p.latest)?.version ?? '',
+      items: versions.map(p => ({ version: p.version, cols: [fmtSize(p.size), fmtDate(p.createdAt)], src: p })),
+    }
+  })
+
+  // --- 에셋(assets) 그룹 --- (백엔드가 이미 최신순으로 반환)
+  const assetList = (assetData.value ?? [])
+    .filter(a => !q || a.version.toLowerCase().includes(q) || '에셋assets'.includes(q))
+  const activeAsset = assetList.find(a => a.active)
+  const assetGroups: AccordionGroup[] = assetList.length
+    ? [{
+      kind: 'asset' as const,
+      name: '에셋(assets)',
+      deployedVersion: activeAsset?.version ?? '',
+      items: assetList.map(a => ({
+        version: a.version,
+        cols: [`파일 ${a.fileCount}개`, fmtSize(a.totalSize), fmtDate(a.createdAt)],
+        src: a,
+      })),
+    }]
+    : []
+
+  return [...pkgGroups, ...assetGroups]
 })
 
-const columns: Column[] = [
-  { key: 'name', label: '패키지명', kind: 'mono' },
-  { key: 'status', label: '구분', kind: 'status' },
-  { key: 'version', label: '버전', kind: 'mono' },
-  { key: 'size', label: '크기', kind: 'muted' },
-  { key: 'created', label: '게시일', kind: 'text' },
-]
+// --- 통합 확인 게이트 (배포/해제 · 패키지/에셋 공통) ---
+interface ConfirmAction {
+  title: string
+  label: string
+  message: string
+  run: () => Promise<unknown>
+  ok: string
+  fail: string
+}
+const confirmOpen = ref(false)
+const pendingAction = ref<ConfirmAction | null>(null)
+function ask(a: ConfirmAction) {
+  pendingAction.value = a
+  confirmOpen.value = true
+}
+async function confirmRun() {
+  const a = pendingAction.value
+  if (!a) return
+  try {
+    await a.run()
+    await refreshAll()
+    push(a.ok, 'success')
+  } catch (e: any) {
+    push(e?.data?.message ?? e?.message ?? a.fail, 'error')
+  }
+}
 
-// --- upload ---
+// 패키지 배포/해제
+function askDeployPackage(p: PackageMeta) {
+  ask({
+    title: '버전 배포', label: '배포',
+    message: `'${p.name}' 패키지를 ${p.version} 버전으로 배포할까요? 워커가 이 버전으로 자동 업데이트됩니다.`,
+    run: () => packages.setLatest(p),
+    ok: `${p.name} ${p.version} 버전을 배포했습니다.`, fail: '배포에 실패했습니다.',
+  })
+}
+function askUndeployPackage(p: PackageMeta) {
+  ask({
+    title: '배포 해제', label: '해제',
+    message: `'${p.name}' 패키지의 배포를 해제할까요? 어느 버전도 배포되지 않아 워커가 새 업데이트를 받지 않습니다.`,
+    run: () => packages.clearLatest(p.name),
+    ok: `${p.name} 배포를 해제했습니다.`, fail: '배포 해제에 실패했습니다.',
+  })
+}
+
+// 에셋 배포/해제
+function askDeployAsset(a: AssetManifestMeta) {
+  ask({
+    title: '에셋 배포', label: '배포',
+    message: `에셋 매니페스트 v${a.version}을(를) 배포할까요? 워커가 이 버전으로 동기화됩니다.`,
+    run: () => assets.activate(a.version),
+    ok: `에셋 v${a.version}을(를) 배포했습니다.`, fail: '에셋 배포에 실패했습니다.',
+  })
+}
+function askUndeployAsset() {
+  ask({
+    title: '에셋 배포 해제', label: '해제',
+    message: '에셋 배포를 해제할까요? 어느 매니페스트도 배포되지 않아 워커는 현재 에셋을 유지합니다.',
+    run: () => assets.clearActive(),
+    ok: '에셋 배포를 해제했습니다.', fail: '에셋 배포 해제에 실패했습니다.',
+  })
+}
+
+// 아코디언 이벤트 라우팅 (그룹 kind로 분기)
+function onActivate(g: AccordionGroup, row: { src: any }) {
+  if (g.kind === 'package') askDeployPackage(row.src as PackageMeta)
+  else askDeployAsset(row.src as AssetManifestMeta)
+}
+function onDeactivate(g: AccordionGroup, row: { src: any }) {
+  if (g.kind === 'package') askUndeployPackage(row.src as PackageMeta)
+  else askUndeployAsset()
+}
+
+// --- 패키지 삭제 ---
+async function doDelete(_g: AccordionGroup, row: { src: any }) {
+  const p = row.src as PackageMeta
+  if (!confirm(`${p.name} ${p.version} 버전을 삭제할까요?\n실제 파일이 영구히 제거됩니다.`)) return
+  try {
+    await packages.remove(p)
+    await refreshAll()
+    push('삭제되었습니다.', 'success')
+  } catch (e: any) {
+    push(e?.data?.message ?? e?.message ?? '삭제에 실패했습니다.', 'error')
+  }
+}
+
+// --- 에셋 매니페스트 보기 ---
+const viewOpen = ref(false)
+const viewMeta = ref<AssetManifestMeta | null>(null)
+const viewDoc = ref<AssetManifestDoc | null>(null)
+const viewFiles = computed(() => Object.entries(viewDoc.value?.files ?? {}))
+async function onView(_g: AccordionGroup, row: { src: any }) {
+  const a = row.src as AssetManifestMeta
+  viewMeta.value = a
+  viewDoc.value = null
+  viewOpen.value = true
+  try {
+    viewDoc.value = await assets.getManifest(a.version)
+  } catch {
+    push('매니페스트를 불러오지 못했습니다.', 'error')
+  }
+}
+
+// --- 패키지 업로드 ---
 const drawerOpen = ref(false)
 const up = ref({ name: '', version: '' })
 const selectedFile = ref<File | null>(null)
@@ -97,36 +185,20 @@ async function doUpload() {
     await packages.upload(selectedFile.value, up.value.name.trim(), up.value.version.trim())
     drawerOpen.value = false
     await refresh()
-    push('업로드되었습니다.')
+    push('업로드되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.data?.message ?? e?.message ?? '업로드에 실패했습니다.')
-  }
-}
-
-// --- delete ---
-async function doDelete(p: PackageMeta) {
-  if (!confirm(`${p.name} ${p.version} 버전을 삭제할까요?\n실제 파일이 영구히 제거됩니다.`)) return
-  try {
-    await packages.remove(p)
-    await refresh()
-    push('삭제되었습니다.')
-  } catch (e: any) {
-    push(e?.data?.message ?? e?.message ?? '삭제에 실패했습니다.')
+    push(e?.data?.message ?? e?.message ?? '업로드에 실패했습니다.', 'error')
   }
 }
 </script>
 
 <template>
   <section class="panel">
-    <WPageHeader title="패키지" desc="배포 바이너리 (자동 업데이트 채널)" add-label="+ 패키지 업로드"
+    <WPageHeader title="패키지" desc="배포 바이너리·에셋 (자동 업데이트 채널) · 버전 chip을 클릭하면 배포됩니다" add-label="+ 패키지 업로드"
       v-model:search="search" @add="openUpload" />
 
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="168">
-      <template #actions="{ row }">
-        <a class="act act--ghost" :href="packages.downloadUrl(row._src)" download>다운로드</a>
-        <button class="act act--danger" @click="doDelete(row._src)">삭제</button>
-      </template>
-    </WDataTable>
+    <WPackageAccordion v-if="groups.length" :groups="groups" :download-url="packages.downloadUrl"
+      @activate="onActivate" @deactivate="onDeactivate" @remove="doDelete" @view="onView" />
     <WEmptyState
       v-else
       title="패키지가 없습니다"
@@ -134,6 +206,23 @@ async function doDelete(p: PackageMeta) {
       cta-label="+ 패키지 업로드"
       @cta="openUpload"
     />
+
+    <WConfirm v-model:open="confirmOpen" :danger="false" :title="pendingAction?.title ?? ''"
+      :confirm-label="pendingAction?.label ?? '확인'" :message="pendingAction?.message ?? ''" @confirm="confirmRun" />
+
+    <WDrawer v-model:open="viewOpen" :title="`에셋 매니페스트 v${viewMeta?.version ?? ''}`"
+      :description="viewMeta ? `파일 ${viewMeta.fileCount}개 · ${fmtSize(viewMeta.totalSize)}` : ''">
+      <p v-if="!viewDoc" class="muted">불러오는 중…</p>
+      <ul v-else class="mf">
+        <li v-for="[path, f] in viewFiles" :key="path" class="mf-row">
+          <span class="mf-path" :title="path">{{ path }}</span>
+          <span class="mf-size">{{ fmtSize(f.size) }}</span>
+        </li>
+      </ul>
+      <template #footer>
+        <button class="act act--ghost" @click="viewOpen = false">닫기</button>
+      </template>
+    </WDrawer>
 
     <WDrawer v-model:open="drawerOpen" title="패키지 업로드" description="배포 바이너리(.tar.gz)를 업로드합니다.">
       <label class="fld"><span>패키지명 <span class="req">*</span></span><input v-model="up.name" placeholder="wrpa-client" /></label>
@@ -150,7 +239,10 @@ async function doDelete(p: PackageMeta) {
 
 <style scoped>
 /* .act / .fld come from the global DS (assets/css/components.css). */
-a.act { text-decoration: none; display: inline-flex; align-items: center; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
 .muted { color: var(--ink-2); font-size: 12px; margin: 2px 0 0; }
+.mf { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; max-height: 60vh; overflow: auto; }
+.mf-row { display: flex; align-items: center; gap: 12px; padding: 6px 2px; border-bottom: 1px dashed var(--line); font-size: 12px; }
+.mf-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--ink); }
+.mf-size { flex: none; font-family: var(--font-mono); color: var(--ink-2); }
 </style>
