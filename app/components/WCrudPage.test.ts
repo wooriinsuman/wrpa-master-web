@@ -1,6 +1,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { flushPromises } from '@vue/test-utils'
 import { h } from 'vue'
 import WCrudPage from './WCrudPage.vue'
 
@@ -15,11 +16,20 @@ const base = {
 }
 
 describe('WCrudPage', () => {
-  it('renders rows and a 삭제 action that emits remove with the row', async () => {
+  it('gates 삭제 behind a confirm dialog before emitting remove', async () => {
     const el = await mountSuspended(WCrudPage, { props: base })
     expect(el.text()).toContain('A')
     const del = el.findAll('button').find(b => b.text() === '삭제')!
     await del.trigger('click')
+    // Destructive: must NOT emit until the confirm is accepted.
+    expect(el.emitted('remove')).toBeFalsy()
+
+    // WConfirm portals to document.body; accept it there.
+    await flushPromises()
+    const confirmBtn = [...document.querySelectorAll('.cf-panel button')].find(b => b.textContent?.trim() === '삭제')!
+    expect(confirmBtn).toBeTruthy()
+    confirmBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
     expect(el.emitted('remove')?.[0]).toEqual([{ id: '1', name: 'A' }])
   })
 

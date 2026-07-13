@@ -29,11 +29,14 @@ describe('workfiles page', () => {
     expect(el.text()).toContain('작업 파일 등록')
   })
 
-  it('renders the dataType select with fetched data-type options in the drawer', async () => {
+  it('renders dataType (dynamic) + fileType/insureType (enum) selects in the drawer', async () => {
     listMock.mockResolvedValue([{ id: '1', insuranceCompanyCode: 'samsung_property', dataType: 'contract', fileType: 'list', insureType: 'all', contentType: 'a', name: '계약 전체 목록' }])
     const el = await mountSuspended(WorkFilesPage)
     await el.find('.add').trigger('click') // opens the drawer (fields render into a teleported DialogPortal)
-    const options = Array.from(document.querySelectorAll('select option'))
-    expect(options.map(o => o.textContent)).toEqual(['계약 (contract)'])
+    const selects = Array.from(document.querySelectorAll('select'))
+    const opts = (i: number) => Array.from(selects[i]!.querySelectorAll('option')).map(o => o.textContent)
+    expect(opts(0)).toEqual(['계약 (contract)']) // dataType — fetched from data-types
+    expect(opts(1)).toEqual(['건별목록 (list)', '명세서 (statement)']) // fileType enum
+    expect(opts(2)).toEqual(['전체 (all)', '장기 (longterm)', '일반 (general)', '자동차 (car)']) // insureType enum
   })
 })

@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NAV } from '~/utils/nav'
-
-const route = useRoute()
-const current = computed(() => NAV.find(n => n.route === route.path))
 </script>
 
 <template>
   <div class="shell">
     <AppSidebar />
     <div class="shell-main">
-      <AppTopbar :title="current?.label ?? 'WRPA'" />
+      <AppTopbar />
       <main class="shell-content"><slot /></main>
     </div>
     <WToast />

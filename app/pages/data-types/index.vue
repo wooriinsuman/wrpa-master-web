@@ -49,6 +49,8 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     desc="작업 유형(신계약/계속분 등) — 우선순위 정책의 카테고리 축"
     add-label="+ 유형 등록"
     empty-title="데이터 유형이 없습니다"
+    remove-noun="데이터 유형"
+    index-column
     :drawer-title="editingId ? '유형 수정' : '유형 등록'"
     drawer-description="작업파일이 참조 중인 유형은 삭제할 수 없습니다."
     :columns="columns"

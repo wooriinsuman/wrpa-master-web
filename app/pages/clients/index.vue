@@ -9,11 +9,11 @@ type Company = components['schemas']['Company']
 interface ClientRow extends CrudRow { status: StatusCell; name: string; code: string; leaderName: string; phone: string }
 
 const columns: Column[] = [
-  { key: 'status', label: '상태', kind: 'status' },
   { key: 'name', label: '회사명', kind: 'text' },
   { key: 'code', label: '코드', kind: 'mono' },
   { key: 'leaderName', label: '담당자', kind: 'text' },
   { key: 'phone', label: '연락처', kind: 'mono' },
+  { key: 'status', label: '상태', kind: 'status' },
 ]
 
 function toRow(c: Company): ClientRow {
@@ -46,6 +46,8 @@ const { rows, search, pending, drawerOpen, form, openCreate, save, remove } = aw
     desc="자동화 대상 회사"
     add-label="+ 회사 등록"
     empty-title="회사가 없습니다"
+    remove-noun="회사"
+    index-column
     drawer-title="회사 등록"
     drawer-description="회사 정보를 입력한 뒤 저장하세요."
     :columns="columns"
@@ -58,8 +60,8 @@ const { rows, search, pending, drawerOpen, form, openCreate, save, remove } = aw
     @remove="remove"
   >
     <template #fields>
-      <label class="fld"><span>회사명 <span class="req">*</span></span><input v-model="form.name" placeholder="로앤손해사정" /></label>
-      <label class="fld"><span>코드 <span class="req">*</span></span><input v-model="form.code" placeholder="LA-01" /></label>
+      <label class="fld"><span>회사명 <span class="req">*</span></span><input v-model="form.name" placeholder="우리인슈맨라이프" /></label>
+      <label class="fld"><span>코드 <span class="req">*</span></span><input v-model="form.code" placeholder="woori" /></label>
       <label class="fld"><span>담당자</span><input v-model="form.leaderName" /></label>
       <label class="fld"><span>연락처</span><input v-model="form.phone" /></label>
       <label class="fld"><span>사업자번호</span><input v-model="form.businessRegistrationNumber" /></label>

@@ -8,16 +8,22 @@ const { listMock, lockMock } = vi.hoisted(() => ({ listMock: vi.fn(), lockMock: 
 mockNuxtImport('useAccounts', () => () => ({
   list: listMock, create: vi.fn(), update: vi.fn(), remove: vi.fn(), lock: lockMock, unlock: vi.fn(),
 }))
+mockNuxtImport('useClients', () => () => ({
+  list: vi.fn().mockResolvedValue([{ id: 'c1', name: '우리인슈맨라이프', code: 'woori', active: true }]),
+  create: vi.fn(), remove: vi.fn(),
+}))
 mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
 
 describe('accounts page', () => {
-  it('renders an account row with its name and a normal (unlocked) status badge', async () => {
+  it('renders an account row with the company name (not its UUID) and a normal status badge', async () => {
     listMock.mockResolvedValue([
       { id: 'a1', insuranceCompanyCode: 'samsung_property', name: '주계정', companyId: 'c1', locked: false, createdAt: 0, updatedAt: 0 },
     ])
     const el = await mountSuspended(AccountsPage)
     expect(el.text()).toContain('주계정')
     expect(el.text()).toContain('계정 등록')
+    expect(el.text()).toContain('우리인슈맨라이프') // companyId → 회사명 매핑
+    expect(el.text()).not.toContain('c1')
     expect(el.find('.badge--done').exists()).toBe(true)
   })
 

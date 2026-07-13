@@ -6,24 +6,52 @@ import type { CrudRow } from '~/utils/crud'
 import type { WorkFileForm } from '~/utils/workFileForm'
 
 type View = components['schemas']['WorkFileView']
-interface WorkFileRow extends CrudRow { name: string; insurer: string; dataType: string; fileType: string; insureType: string }
+interface WorkFileRow extends CrudRow { code: string; name: string; insurer: string; dataType: string; fileType: string; insureType: string; path: string }
+
+// 데이터 유형 목록 — dataType 코드를 한글 표시명으로 매핑 + 등록/수정 select 옵션.
+const { data: dtData } = await useAsyncData('wf-datatypes', () => useDataTypes().list())
+const dataTypeOptions = computed(() => dtData.value ?? [])
+const dataTypeNameByCode = computed(() => new Map(dataTypeOptions.value.map(d => [d.code, d.name])))
+function dataTypeLabel(code?: string | null): string {
+  if (!code) return '—'
+  return dataTypeNameByCode.value.get(code) ?? code // 목록에 없으면 코드로 폴백
+}
+
+// 유형(fileType) / 보종(insureType) — legacy enum(ContractFileType / ContractFileInsureType).
+// 저장값은 소문자(자산 폴더 jobCode와 정합), 표시는 한글 라벨.
+const FILE_TYPE_OPTIONS = [
+  { value: 'list', label: '건별목록' },
+  { value: 'statement', label: '명세서' },
+]
+const INSURE_TYPE_OPTIONS = [
+  { value: 'all', label: '전체' },
+  { value: 'longterm', label: '장기' },
+  { value: 'general', label: '일반' },
+  { value: 'car', label: '자동차' },
+]
+const fileTypeLabel = (v?: string | null) => FILE_TYPE_OPTIONS.find(o => o.value === v)?.label ?? (v || '—')
+const insureTypeLabel = (v?: string | null) => INSURE_TYPE_OPTIONS.find(o => o.value === v)?.label ?? (v || '—')
 
 const columns: Column[] = [
+  { key: 'code', label: '코드', kind: 'mono' },
   { key: 'name', label: '파일명', kind: 'text' },
   { key: 'insurer', label: '보험사', kind: 'mono' },
   { key: 'dataType', label: '데이터', kind: 'text' },
   { key: 'fileType', label: '유형', kind: 'text' },
   { key: 'insureType', label: '보종', kind: 'text' },
+  { key: 'path', label: '전산경로', kind: 'muted' },
 ]
 
 function toRow(w: View): WorkFileRow {
   return {
     id: w.id,
+    code: w.jobCode, // dataType_fileType_insureType_contentType (예: new_list_all_a)
     name: w.name,
     insurer: w.insuranceCompanyCode,
-    dataType: w.dataType ?? '—',
-    fileType: w.fileType ?? '—',
-    insureType: w.insureType ?? '—',
+    dataType: dataTypeLabel(w.dataType),
+    fileType: fileTypeLabel(w.fileType),
+    insureType: insureTypeLabel(w.insureType),
+    path: w.originPath || '—',
   }
 }
 
@@ -41,7 +69,7 @@ function toForm(w: View): WorkFileForm {
 }
 
 function blank(): WorkFileForm {
-  return { insuranceCompanyCode: '', dataType: '', fileType: '', insureType: '', contentType: '', name: '', note: '', originPath: '' }
+  return { insuranceCompanyCode: '', dataType: '', fileType: 'list', insureType: 'all', contentType: '', name: '', note: '', originPath: '' }
 }
 
 const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove } = await useCrudPage<View, WorkFileForm, WorkFileRow>({
@@ -52,9 +80,6 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
   toForm,
   searchKeys: ['name', 'insurer', 'dataType'],
 })
-
-const { data: dtData } = await useAsyncData('wf-datatypes', () => useDataTypes().list())
-const dataTypeOptions = computed(() => dtData.value ?? [])
 </script>
 
 <template>
@@ -63,6 +88,8 @@ const dataTypeOptions = computed(() => dtData.value ?? [])
     desc="work-file 관리"
     add-label="+ 작업 파일 등록"
     empty-title="작업 파일이 없습니다"
+    remove-noun="작업 파일"
+    index-column
     :drawer-title="editingId ? '작업 파일 수정' : '작업 파일 등록'"
     drawer-description="작업 파일 정보를 입력한 뒤 저장하세요."
     :columns="columns"
@@ -83,10 +110,17 @@ const dataTypeOptions = computed(() => dtData.value ?? [])
         <select v-model="form.dataType">
           <option v-for="d in dataTypeOptions" :key="d.code" :value="d.code">{{ d.name }} ({{ d.code }})</option>
         </select></label>
-      <label class="fld"><span>유형 <span class="req">*</span></span><input v-model="form.fileType" placeholder="list" /></label>
-      <label class="fld"><span>보종 <span class="req">*</span></span><input v-model="form.insureType" placeholder="all" /></label>
+      <label class="fld"><span>유형 <span class="req">*</span></span>
+        <select v-model="form.fileType">
+          <option v-for="o in FILE_TYPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }} ({{ o.value }})</option>
+        </select></label>
+      <label class="fld"><span>보종 <span class="req">*</span></span>
+        <select v-model="form.insureType">
+          <option v-for="o in INSURE_TYPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }} ({{ o.value }})</option>
+        </select></label>
       <label class="fld"><span>컨텐츠 <span class="req">*</span></span><input v-model="form.contentType" placeholder="a" /></label>
-      <label class="fld"><span>비고</span><input v-model="form.note" /></label>
+      <label class="fld"><span>전산경로</span><input v-model="form.originPath" placeholder="보험사 사이트 메뉴 경로 (참고용)" /></label>
+      <label class="fld"><span>비고</span><textarea v-model="form.note" rows="3" placeholder="메모"></textarea></label>
     </template>
   </WCrudPage>
 </template>

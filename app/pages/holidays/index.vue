@@ -32,7 +32,8 @@ const columns: Column[] = [
 const rows = computed<HolidayRow[]>(() => list.value.map(h => ({
   day: h.day,
   name: h.name,
-  source: { label: h.source, kind: h.source === 'api' ? 'idle' : 'done' } as StatusCell,
+  // api=자동동기화, manual=손댄 행(수동추가 또는 토글) → 재동기화가 안 덮음
+  source: { label: h.source === 'api' ? '자동' : '수동', kind: h.source === 'api' ? 'idle' : 'done' } as StatusCell,
   state: h.active
     ? { label: '휴일(작업 안 함)', kind: 'idle' } as StatusCell
     : { label: '작업함', kind: 'done' } as StatusCell,
@@ -48,8 +49,17 @@ async function toggle(h: View) {
   }
 }
 
-async function removeRow(h: View) {
-  if (!confirm(`${h.day} ${h.name}을(를) 삭제할까요?`)) return
+// 삭제는 공용 WConfirm 다이얼로그로 게이트 (다른 페이지와 일관).
+const confirmOpen = ref(false)
+const pendingRemove = ref<View | null>(null)
+const confirmMessage = computed(() =>
+  pendingRemove.value ? `${pendingRemove.value.day} ${pendingRemove.value.name} — 삭제하면 되돌릴 수 없습니다.` : '',
+)
+function askRemove(h: View) { pendingRemove.value = h; confirmOpen.value = true }
+async function doRemove() {
+  const h = pendingRemove.value
+  pendingRemove.value = null
+  if (!h) return
   try {
     await holidays.remove(h.day)
     await refresh()
@@ -115,10 +125,11 @@ async function syncNow() {
       </div>
     </div>
 
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="180">
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="180" index-column>
       <template #actions="{ row }">
         <button class="act act--ghost" @click="toggle(row._src)">{{ row._src.active ? '작업함으로' : '휴일로' }}</button>
-        <button class="act act--danger" @click="removeRow(row._src)">삭제</button>
+        <!-- 자동(공식 공휴일)은 삭제 불가 — 그날 작업하려면 '작업함으로' 토글 사용 -->
+        <button v-if="row._src.source !== 'api'" class="act act--danger" @click="askRemove(row._src)">삭제</button>
       </template>
     </WDataTable>
     <WEmptyState
@@ -137,6 +148,8 @@ async function syncNow() {
         <button class="act act--primary" @click="addManual">저장</button>
       </template>
     </WDrawer>
+
+    <WConfirm v-model:open="confirmOpen" title="휴일 삭제" :message="confirmMessage" confirm-label="삭제" @confirm="doRemove" />
   </section>
 </template>
 
