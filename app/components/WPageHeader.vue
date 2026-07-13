@@ -1,6 +1,7 @@
 <!-- app/components/WPageHeader.vue -->
 <script setup lang="ts">
-defineProps<{ title: string; desc?: string; search?: string; addLabel: string }>()
+// addLabel omitted → no add button (e.g. workers self-register, no manual create).
+defineProps<{ title: string; desc?: string; search?: string; addLabel?: string }>()
 defineEmits<{ add: []; 'update:search': [v: string] }>()
 </script>
 <template>
@@ -13,7 +14,7 @@ defineEmits<{ add: []; 'update:search': [v: string] }>()
       <slot name="header-actions" />
       <input class="ph-search" :value="search" placeholder="검색…"
         @input="$emit('update:search', ($event.target as HTMLInputElement).value)" />
-      <button class="add" @click="$emit('add')">{{ addLabel }}</button>
+      <button v-if="addLabel" class="add" @click="$emit('add')">{{ addLabel }}</button>
     </div>
   </div>
 </template>

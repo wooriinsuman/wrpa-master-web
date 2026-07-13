@@ -1,30 +1,30 @@
 import { describe, it, expect } from 'vitest'
-import { blankWorkerForm, splitTags, toWorkerRequest } from './workerForm'
+import { blankWorkerForm, workerTypeLabel, workerStateLabel } from './workerForm'
 
 describe('blankWorkerForm', () => {
-  it('is empty name/type/tags and shared false', () => {
-    expect(blankWorkerForm()).toEqual({ name: '', type: '', tagsText: '', shared: false })
+  it('starts with empty company/insurer assignment', () => {
+    expect(blankWorkerForm()).toEqual({ companyIds: [], insurerIds: [] })
   })
 })
 
-describe('splitTags', () => {
-  it('splits, trims, drops empties', () => {
-    expect(splitTags(' a , b ,, c ')).toEqual(['a', 'b', 'c'])
-    expect(splitTags('   ')).toEqual([])
+describe('workerTypeLabel', () => {
+  it('maps legacy WorkerType codes to Korean', () => {
+    expect(workerTypeLabel('ContractCrawl')).toBe('보험사 전산 RPA')
+    expect(workerTypeLabel('GuaranteeInsuranceCrawl')).toBe('보증보험 RPA')
+  })
+  it('falls back to the raw value (or —) for unknown/empty', () => {
+    expect(workerTypeLabel('crawler')).toBe('crawler')
+    expect(workerTypeLabel('')).toBe('—')
   })
 })
 
-describe('toWorkerRequest', () => {
-  it('requires name then type', () => {
-    expect(() => toWorkerRequest(blankWorkerForm())).toThrow('이름을 입력하세요.')
-    expect(() => toWorkerRequest({ ...blankWorkerForm(), name: 'w1' })).toThrow('유형을 입력하세요.')
+describe('workerStateLabel', () => {
+  it('maps states to Korean (case-insensitive)', () => {
+    expect(workerStateLabel('idle')).toBe('대기중')
+    expect(workerStateLabel('BUSY')).toBe('작업중')
+    expect(workerStateLabel('offline')).toBe('오프라인')
   })
-  it('maps name/type trimmed with shared, no tags when empty', () => {
-    expect(toWorkerRequest({ name: ' w1 ', type: ' crawler ', tagsText: '', shared: true }))
-      .toEqual({ name: 'w1', type: 'crawler', shared: true })
-  })
-  it('includes tags when present', () => {
-    expect(toWorkerRequest({ name: 'w1', type: 'crawler', tagsText: 'a, b', shared: false }))
-      .toEqual({ name: 'w1', type: 'crawler', shared: false, tags: ['a', 'b'] })
+  it('falls back to 알수없음 for empty', () => {
+    expect(workerStateLabel('')).toBe('알수없음')
   })
 })

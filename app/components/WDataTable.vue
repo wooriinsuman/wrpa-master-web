@@ -6,7 +6,9 @@ import { isStatusCell } from '~/utils/status'
 export interface Column {
   key: string
   label: string
-  kind?: 'text' | 'mono' | 'muted' | 'status'
+  kind?: 'text' | 'mono' | 'muted' | 'status' | 'chips'
+  // Relative width multiplier (flex-grow). Default 1; e.g. 2 = twice the share.
+  weight?: number
   // Header click sorting is on by default; set false to opt a column out.
   sortable?: boolean
   // Optional custom sort ranking for categorical columns (e.g. 생/손/보증 order).
@@ -101,6 +103,7 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
           :key="c.key"
           class="dt-th"
           :class="{ 'dt-th--sortable': sortableOf(c), 'dt-th--active': !!sortState(c.key) }"
+          :style="c.weight ? { flexGrow: c.weight } : undefined"
           @click="onSort(c, $event)"
         >
           {{ c.label }}
@@ -115,10 +118,18 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
       </div>
       <div v-for="(row, i) in displayRows" :key="i" class="dt-row">
         <div v-if="indexColumn" class="dt-td dt-td--idx">{{ i + 1 }}</div>
-        <div v-for="c in columns" :key="c.key" class="dt-td" :class="`dt-td--${c.kind ?? 'text'}`">
+        <div v-for="c in columns" :key="c.key" class="dt-td" :class="`dt-td--${c.kind ?? 'text'}`" :style="c.weight ? { flexGrow: c.weight } : undefined">
           <template v-if="c.kind === 'status'">
             <WStatusBadge v-if="isStatusCell(row[c.key])" :label="row[c.key].label" :kind="row[c.key].kind" />
             <WStatusBadge v-else :label="String(row[c.key])" />
+          </template>
+          <!-- chips: array → wrapping pills (all shown, never truncated);
+               string → muted text (e.g. a "배정 안됨" placeholder). -->
+          <template v-else-if="c.kind === 'chips'">
+            <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
+              <span v-for="(chip, ci) in row[c.key]" :key="ci" class="dt-chip">{{ chip }}</span>
+            </template>
+            <span v-else class="dt-chip-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
           </template>
           <span v-else>{{ row[c.key] }}</span>
         </div>
@@ -148,6 +159,10 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
 .dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-align: center; }
 .dt-td--mono { font-family: var(--font-mono); }
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+/* chips cell: wrap all values onto multiple lines, never truncate. */
+.dt-td--chips { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; white-space: normal; overflow: visible; text-overflow: clip; }
+.dt-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--th); border: 1px solid var(--line); font-size: 11.5px; color: var(--ink); white-space: nowrap; }
+.dt-chip-empty { font-size: 12px; color: var(--ink-2); }
 /* Must follow `.dt-td` so `flex: none` wins over the base `flex: 1` and the
    № column keeps its fixed width (matching the `.dt-idx-h` header). */
 .dt-td--idx { flex: none; width: 52px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
