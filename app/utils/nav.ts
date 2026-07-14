@@ -35,7 +35,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '시스템',
     items: [
       { id: 'workers', code: 'WK', label: '워커', route: '/workers', done: true },
-      { id: 'packages', code: 'PK', label: '패키지', route: '/packages' },
+      { id: 'packages', code: 'PK', label: '패키지', route: '/packages', done: true },
       { id: 'users', code: 'US', label: '사용자', route: '/users' },
     ],
   },

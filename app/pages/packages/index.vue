@@ -4,6 +4,7 @@ import type { PackageMeta } from '~/composables/usePackages'
 import type { AssetManifestMeta, AssetManifestDoc } from '~/composables/useAssets'
 import type { AccordionGroup } from '~/components/WPackageAccordion.vue'
 import { fmtSize, fmtDate } from '~/utils/format'
+import { buildFileTree } from '~/utils/fileTree'
 
 const packages = usePackages()
 const assets = useAssets()
@@ -152,7 +153,7 @@ async function doDelete(_g: AccordionGroup, row: { src: any }) {
 const viewOpen = ref(false)
 const viewMeta = ref<AssetManifestMeta | null>(null)
 const viewDoc = ref<AssetManifestDoc | null>(null)
-const viewFiles = computed(() => Object.entries(viewDoc.value?.files ?? {}))
+const viewTree = computed(() => buildFileTree(viewDoc.value?.files ?? {}))
 async function onView(_g: AccordionGroup, row: { src: any }) {
   const a = row.src as AssetManifestMeta
   viewMeta.value = a
@@ -213,12 +214,10 @@ async function doUpload() {
     <WDrawer v-model:open="viewOpen" :title="`에셋 매니페스트 v${viewMeta?.version ?? ''}`"
       :description="viewMeta ? `파일 ${viewMeta.fileCount}개 · ${fmtSize(viewMeta.totalSize)}` : ''">
       <p v-if="!viewDoc" class="muted">불러오는 중…</p>
-      <ul v-else class="mf">
-        <li v-for="[path, f] in viewFiles" :key="path" class="mf-row">
-          <span class="mf-path" :title="path">{{ path }}</span>
-          <span class="mf-size">{{ fmtSize(f.size) }}</span>
-        </li>
-      </ul>
+      <p v-else-if="!viewTree.fileCount" class="muted">파일이 없습니다.</p>
+      <div v-else class="mf">
+        <WFileTree :dirs="viewTree.dirs" :files="viewTree.files" />
+      </div>
       <template #footer>
         <button class="act act--ghost" @click="viewOpen = false">닫기</button>
       </template>
@@ -241,8 +240,5 @@ async function doUpload() {
 /* .act / .fld come from the global DS (assets/css/components.css). */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
 .muted { color: var(--ink-2); font-size: 12px; margin: 2px 0 0; }
-.mf { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; max-height: 60vh; overflow: auto; }
-.mf-row { display: flex; align-items: center; gap: 12px; padding: 6px 2px; border-bottom: 1px dashed var(--line); font-size: 12px; }
-.mf-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--ink); }
-.mf-size { flex: none; font-family: var(--font-mono); color: var(--ink-2); }
+.mf { max-height: 60vh; overflow: auto; }
 </style>
