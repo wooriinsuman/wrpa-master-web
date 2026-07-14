@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { CrudRow } from '~/utils/crud'
@@ -114,6 +114,11 @@ const crud = await useCrudPage<View, JobForm, JobRow>({
   searchKeys: ['insurer', 'company', 'account', 'dataType', 'files'],
 })
 const { rows, search, pending, drawerOpen, editingId, form, save, remove, refresh } = crud
+
+// 주말·공휴일 제외를 켜면 토(6)·일(0)은 어차피 생성 안 되므로 요일 선택에서 제거(입력 모순 방지).
+watch(() => form.value.excludeWeekendHoliday, (on) => {
+  if (on) form.value.weekdays = form.value.weekdays.filter(d => d !== 0 && d !== 6)
+})
 
 // --- 대량 선택 → 일괄 수정·복사 (액션 바는 #toolbar 슬롯, 선택 상태는 표와 v-model 공유) ---
 const selected = ref<string[]>([])
@@ -316,6 +321,8 @@ async function submitCopy() {
         <div class="wk-row">
           <button v-for="(w, d) in WEEKDAYS" :key="d" type="button"
             class="wk" :class="{ on: form.weekdays.includes(d) }"
+            :disabled="form.excludeWeekendHoliday && (d === 0 || d === 6)"
+            :title="form.excludeWeekendHoliday && (d === 0 || d === 6) ? '주말·공휴일 제외가 켜져 있어 선택 불가' : ''"
             @click="form.weekdays.includes(d)
               ? form.weekdays.splice(form.weekdays.indexOf(d), 1)
               : form.weekdays.push(d)">{{ w }}</button>
@@ -418,4 +425,5 @@ async function submitCopy() {
 .wk { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); cursor: pointer; transition: all .12s ease; }
 .wk:hover { border-color: var(--run); color: var(--run); }
 .wk.on { background: var(--nav-active); color: var(--run); border-color: var(--run); font-weight: 600; }
+.wk:disabled { opacity: .35; cursor: not-allowed; border-color: var(--line); color: var(--ink-2); background: var(--panel); }
 </style>

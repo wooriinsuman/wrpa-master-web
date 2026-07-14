@@ -28,7 +28,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'holidays', code: 'HD', label: '휴일', route: '/holidays', done: true },
       { id: 'orderpolicies', code: 'OP', label: '우선순위 정책', route: '/order-policies' },
-      { id: 'schedules', code: 'SC', label: '작업 일정', route: '/schedules' },
+      { id: 'schedules', code: 'SC', label: '작업 일정', route: '/schedules', done: true },
     ],
   },
   {
