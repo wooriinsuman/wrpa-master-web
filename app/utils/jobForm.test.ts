@@ -3,7 +3,7 @@ import { toCreateJobRequest, toUpdateJobRequest, type JobForm } from './jobForm'
 
 const base: JobForm = {
   companyId: 'c1', accountId: 'a1', workFileIds: ['wf1', 'wf2'],
-  startDay: '3', endDay: '5', runTime: '09:00', priority: '5', timeoutSec: '300', closingMonthOffset: '0',
+  startDay: '3', endDay: '5', fromMonthEnd: false, runTimes: ['09:00'], weekdays: [], priority: '5', timeoutSec: '300', closingMonthOffset: '0',
   startBusinessDay: true, endBusinessDay: false, excludeWeekendHoliday: true, locked: false, note: '야간',
 }
 
@@ -35,5 +35,15 @@ describe('jobForm', () => {
     expect(r.workFileIds).toEqual(['wf1', 'wf2'])
     expect('companyId' in r).toBe(false)
     expect(() => toUpdateJobRequest({ ...base, workFileIds: [] })).toThrow()
+  })
+
+  it('maps runTimes and weekdays, trims blanks, rejects empty runTimes', () => {
+    const f = { ...base, runTimes: ['09:00', ' 18:00 ', ''], weekdays: [1, 3] }
+    const req = toCreateJobRequest(f)
+    expect(req.runTimes).toEqual(['09:00', '18:00'])
+    expect(req.weekdays).toEqual([1, 3])
+
+    expect(() => toCreateJobRequest({ ...base, runTimes: ['', '  '] }))
+      .toThrow('실행시각')
   })
 })

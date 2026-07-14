@@ -8,7 +8,9 @@ export interface JobForm {
   workFileIds: string[]
   startDay: string
   endDay: string // '' = 미지정(시작일만)
-  runTime: string
+  fromMonthEnd: boolean // window 경계를 월말에서부터 카운트(시작·종료 공통, 1=말일)
+  runTimes: string[]
+  weekdays: number[] // 0=일 … 6=토, 비우면 전 영업일
   priority: string
   timeoutSec: string
   closingMonthOffset: string
@@ -41,8 +43,15 @@ export function toCreateJobRequest(f: JobForm): CreateReq {
     accountId: f.accountId.trim(),
     workFileIds: f.workFileIds,
     startDay: num(f.startDay, 1),
+    startFromMonthEnd: f.fromMonthEnd,
     endDay: numOrNull(f.endDay),
-    runTime: f.runTime,
+    endFromMonthEnd: f.fromMonthEnd,
+    runTimes: (() => {
+      const rt = f.runTimes.map(s => s.trim()).filter(Boolean)
+      if (rt.length === 0) throw new Error('실행시각을 1개 이상 입력하세요.')
+      return rt
+    })(),
+    weekdays: f.weekdays,
     priority: num(f.priority, 0),
     timeoutSec: num(f.timeoutSec, 300),
     closingMonthOffset: num(f.closingMonthOffset, 0),
@@ -59,8 +68,15 @@ export function toUpdateJobRequest(f: JobForm): UpdateReq {
   return {
     workFileIds: f.workFileIds,
     startDay: num(f.startDay, 1),
+    startFromMonthEnd: f.fromMonthEnd,
     endDay: numOrNull(f.endDay),
-    runTime: f.runTime,
+    endFromMonthEnd: f.fromMonthEnd,
+    runTimes: (() => {
+      const rt = f.runTimes.map(s => s.trim()).filter(Boolean)
+      if (rt.length === 0) throw new Error('실행시각을 1개 이상 입력하세요.')
+      return rt
+    })(),
+    weekdays: f.weekdays,
     priority: num(f.priority, 0),
     timeoutSec: num(f.timeoutSec, 300),
     closingMonthOffset: num(f.closingMonthOffset, 0),

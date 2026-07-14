@@ -24,10 +24,16 @@ const props = defineProps<{
   actionsWidth?: number
   // Prepend a 1-based № column reflecting the current (sorted) display order.
   indexColumn?: boolean
+  // Opt-in checkbox column for multi-select (bulk actions). Off by default.
+  selectable?: boolean
 }>()
 
 // Multi-column sort state, highest priority first. Empty = show source order.
 const sorts = ref<Sort[]>([])
+
+// Selection is keyed by row.id (not display index `i`) so it stays stable
+// across sorting. `rows` is typed loosely here, but CrudRow guarantees `id`.
+const selected = defineModel<string[]>('selected', { default: () => [] })
 
 function sortableOf(c: Column) { return c.sortable !== false }
 
@@ -92,11 +98,23 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
   const idx = sorts.value.findIndex(s => s.key === key)
   return idx === -1 ? null : { dir: sorts.value[idx]!.dir, rank: idx + 1 }
 }
+
+const allSelected = computed(() => displayRows.value.length > 0 && displayRows.value.every(r => selected.value.includes(r.id)))
+function toggleOne(id: string) {
+  selected.value = selected.value.includes(id) ? selected.value.filter(x => x !== id) : [...selected.value, id]
+}
+function toggleAll() {
+  const ids = displayRows.value.map(r => r.id)
+  selected.value = allSelected.value ? selected.value.filter(x => !ids.includes(x)) : [...new Set([...selected.value, ...ids])]
+}
 </script>
 <template>
   <div class="dt-wrap" :style="{ '--dt-actions-w': `${props.actionsWidth ?? 128}px` }">
     <div class="dt-min">
       <div class="dt-head">
+        <div v-if="selectable" class="dt-th dt-sel-h">
+          <input type="checkbox" :checked="allSelected" @change="toggleAll" />
+        </div>
         <div v-if="indexColumn" class="dt-th dt-idx-h">№</div>
         <div
           v-for="c in columns"
@@ -117,6 +135,9 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
         <slot name="empty">데이터가 없습니다.</slot>
       </div>
       <div v-for="(row, i) in displayRows" :key="i" class="dt-row">
+        <div v-if="selectable" class="dt-td dt-td--sel">
+          <input type="checkbox" :checked="selected.includes(row.id)" @change="toggleOne(row.id)" />
+        </div>
         <div v-if="indexColumn" class="dt-td dt-td--idx">{{ i + 1 }}</div>
         <div v-for="c in columns" :key="c.key" class="dt-td" :class="`dt-td--${c.kind ?? 'text'}`" :style="c.weight ? { flexGrow: c.weight } : undefined">
           <template v-if="c.kind === 'status'">
@@ -160,6 +181,7 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
 .dt-th--active { color: var(--ink); }
 .dt-sort { margin-left: 4px; font-size: 10px; }
 .dt-sort-rank { font-size: 9px; vertical-align: super; margin-left: 1px; opacity: .7; }
+.dt-sel-h { flex: none; width: 40px; display: flex; align-items: center; justify-content: center; }
 .dt-idx-h { flex: none; width: 52px; }
 .dt-actions-h { flex: none; width: var(--dt-actions-w, 128px); text-align: center; }
 .dt-row { display: flex; align-items: center; border-top: 1px solid var(--line); transition: background .15s ease; }
@@ -191,6 +213,7 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
 /* Must follow `.dt-td` so `flex: none` wins over the base `flex: 1` and the
    № column keeps its fixed width (matching the `.dt-idx-h` header). */
 .dt-td--idx { flex: none; width: 52px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+.dt-td--sel { flex: none; width: 40px; display: flex; align-items: center; justify-content: center; }
 .dt-actions { flex: none; width: var(--dt-actions-w, 128px); display: flex; gap: 6px; justify-content: center; }
 .dt-empty { padding: 32px 16px; text-align: center; font-size: 13px; color: var(--ink-2); }
 </style>

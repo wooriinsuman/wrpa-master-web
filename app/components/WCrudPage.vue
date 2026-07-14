@@ -17,6 +17,8 @@ const props = defineProps<{
   editable?: boolean
   actionsWidth?: number
   indexColumn?: boolean
+  // Opt-in checkbox column for multi-select (bulk actions). Off by default.
+  selectable?: boolean
   // Label shown inside the delete confirm ("<removeNoun> 삭제하시겠습니까?").
   removeNoun?: string
 }>()
@@ -30,6 +32,7 @@ const emit = defineEmits<{
 
 const search = defineModel<string>('search', { default: '' })
 const drawerOpen = defineModel<boolean>('drawerOpen', { default: false })
+const selected = defineModel<string[]>('selected', { default: () => [] })
 
 // Destructive deletes are gated behind a confirm dialog (all CRUD pages).
 const confirmOpen = ref(false)
@@ -49,7 +52,7 @@ function confirmRemove() {
       </template>
     </WPageHeader>
     <slot name="toolbar" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="actionsWidth" :index-column="indexColumn">
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="actionsWidth" :index-column="indexColumn" :selectable="selectable" v-model:selected="selected">
       <template #actions="{ row }">
         <slot name="row-actions-lead" :row="(row as Row)" />
         <button v-if="editable" class="act act--ghost" @click="emit('edit', row as Row)">상세</button>
