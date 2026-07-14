@@ -5,8 +5,9 @@ type UpdateReq = components['schemas']['UpdateJobRequest']
 export interface JobForm {
   companyId: string
   accountId: string
-  workFileIdsText: string
+  workFileIds: string[]
   startDay: string
+  endDay: string // '' = 미지정(시작일만)
   runTime: string
   priority: string
   timeoutSec: string
@@ -18,40 +19,29 @@ export interface JobForm {
   note: string
 }
 
-export function splitIds(text: string): string[] {
-  return text.split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
-}
-
-export function joinIds(ids: string[]): string {
-  return ids.join(', ')
-}
-
 function num(v: string, fallback: number): number {
   const n = parseInt(v, 10)
   return Number.isFinite(n) ? n : fallback
 }
 
-function assertWorkFileIds(f: JobForm): string[] {
-  if (!f.companyId.trim()) throw new Error('회사를 입력하세요.')
-  if (!f.accountId.trim()) throw new Error('계정을 입력하세요.')
-  const workFileIds = splitIds(f.workFileIdsText)
-  if (workFileIds.length === 0) throw new Error('작업 파일 ID를 1개 이상 입력하세요.')
-  return workFileIds
-}
-
-function assertWorkFileIdsOnly(f: JobForm): string[] {
-  const workFileIds = splitIds(f.workFileIdsText)
-  if (workFileIds.length === 0) throw new Error('작업 파일 ID를 1개 이상 입력하세요.')
-  return workFileIds
+// 빈 문자열/비수 → null(끝까지). 그 외 정수.
+function numOrNull(v: string): number | null {
+  const t = v.trim()
+  if (t === '') return null
+  const n = parseInt(t, 10)
+  return Number.isFinite(n) ? n : null
 }
 
 export function toCreateJobRequest(f: JobForm): CreateReq {
-  const workFileIds = assertWorkFileIds(f)
+  if (!f.companyId.trim()) throw new Error('회사를 선택하세요.')
+  if (!f.accountId.trim()) throw new Error('계정을 선택하세요.')
+  if (f.workFileIds.length === 0) throw new Error('작업 파일을 1개 이상 선택하세요.')
   return {
     companyId: f.companyId.trim(),
     accountId: f.accountId.trim(),
-    workFileIds,
+    workFileIds: f.workFileIds,
     startDay: num(f.startDay, 1),
+    endDay: numOrNull(f.endDay),
     runTime: f.runTime,
     priority: num(f.priority, 0),
     timeoutSec: num(f.timeoutSec, 300),
@@ -65,10 +55,11 @@ export function toCreateJobRequest(f: JobForm): CreateReq {
 }
 
 export function toUpdateJobRequest(f: JobForm): UpdateReq {
-  const workFileIds = assertWorkFileIdsOnly(f)
+  if (f.workFileIds.length === 0) throw new Error('작업 파일을 1개 이상 선택하세요.')
   return {
-    workFileIds,
+    workFileIds: f.workFileIds,
     startDay: num(f.startDay, 1),
+    endDay: numOrNull(f.endDay),
     runTime: f.runTime,
     priority: num(f.priority, 0),
     timeoutSec: num(f.timeoutSec, 300),

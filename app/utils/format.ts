@@ -9,6 +9,16 @@ export function fmtSize(bytes: number): string {
   return `${n.toFixed(i ? 1 : 0)} ${u[i]}`
 }
 
+// 초 → "N분 M초" 사람이 읽는 표기. 0/음수/비수는 '—'.
+export function fmtDuration(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return '—'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  if (m && s) return `${m}분 ${s}초`
+  if (m) return `${m}분`
+  return `${s}초`
+}
+
 // ISO 문자열 → ko-KR 로컬 표기. 빈값/파싱 실패는 '—'.
 export function fmtDate(iso: string): string {
   if (!iso) return '—'

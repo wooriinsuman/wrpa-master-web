@@ -69,7 +69,7 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
         <input v-model="form.code" placeholder="new" :disabled="!!editingId" /></label>
       <label class="fld"><span>표시명 <span class="req">*</span></span>
         <input v-model="form.name" placeholder="신계약" /></label>
-      <label class="fld"><span>메모</span><input v-model="form.note" /></label>
+      <label class="fld"><span>메모</span><textarea v-model="form.note" rows="3" placeholder="메모"></textarea></label>
     </template>
   </WCrudPage>
 </template>

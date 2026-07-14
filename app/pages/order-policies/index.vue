@@ -2,10 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
-import { categoryLabel } from '~/utils/category'
+import { categoryLabel, buildCategoryKey, offsetLabel, sortByDataTypeOrder } from '~/utils/category'
 import { extractApiError } from '~/utils/apiError'
 import {
-  categoryCandidates,
   moveOrder,
   validateOrderPolicyForm,
   type OrderPolicyForm,
@@ -30,8 +29,7 @@ const { data: insurersData } = await useAsyncData('order-policies-insurers', () 
 const insurerList = computed(() => insurersData.value ?? [])
 
 const { data: dataTypesData } = await useAsyncData('order-policies-datatypes', () => dataTypes.list())
-const dataTypeList = computed(() => dataTypesData.value ?? [])
-const dataTypeCodes = computed(() => dataTypeList.value.map(d => d.code))
+const dataTypeList = computed(() => sortByDataTypeOrder(dataTypesData.value ?? []))
 const dataTypeNames = computed<Record<string, string>>(() => Object.fromEntries(dataTypeList.value.map(d => [d.code, d.name])))
 
 const companyId = ref('')
@@ -89,13 +87,13 @@ function openEdit(p: View) {
   form.value = {
     companyId: p.companyId,
     insuranceCompanyCode: p.insuranceCompanyCode ?? '',
-    rows: p.rows.map(r => ({ bizDayFrom: r.bizDayFrom, bizDayTo: r.bizDayTo ?? null, order: [...r.order] })),
+    rows: p.rows.map(r => ({ bizDayFrom: r.bizDayFrom, bizDayTo: r.bizDayTo ?? null, order: [...r.order], draftOffset: 0, draftDataType: '' })),
   }
   drawerOpen.value = true
 }
 
 function addRow() {
-  form.value.rows.push({ bizDayFrom: 1, bizDayTo: null, order: [] })
+  form.value.rows.push({ bizDayFrom: 1, bizDayTo: null, order: [], draftOffset: 0, draftDataType: '' })
 }
 function removeRow(ri: number) {
   form.value.rows.splice(ri, 1)
@@ -104,10 +102,12 @@ function setBizDayTo(row: PolicyRowForm, e: Event) {
   const v = (e.target as HTMLInputElement).value
   row.bizDayTo = v === '' ? null : Number(v)
 }
-function onCategorySelect(row: PolicyRowForm, e: Event) {
-  const el = e.target as HTMLSelectElement
-  if (el.value) row.order.push(el.value)
-  el.value = ''
+// 업적월(오프셋) + 데이터타입 조합을 카테고리 키로 만들어 순서 목록에 추가.
+function addCategory(row: PolicyRowForm) {
+  if (!row.draftDataType) { push('데이터 타입을 선택하세요'); return }
+  const key = buildCategoryKey(row.draftOffset ?? 0, row.draftDataType)
+  if (!row.order.includes(key)) row.order.push(key)
+  row.draftDataType = '' // 오프셋은 유지해 연속 추가 편하게, 데이터타입만 리셋
 }
 
 async function save() {
@@ -215,12 +215,16 @@ async function removePolicy(p: View) {
               <button class="act act--danger" @click="row.order.splice(oi, 1)">×</button>
             </li>
           </ol>
-          <select @change="onCategorySelect(row, $event)">
-            <option value="">+ 카테고리 추가</option>
-            <option v-for="k in categoryCandidates(row.order, dataTypeCodes)" :key="k" :value="k">
-              {{ categoryLabel(k, dataTypeNames) }}
-            </option>
-          </select>
+          <div class="cat-add">
+            <span>업적월</span>
+            <input type="number" v-model.number="row.draftOffset" class="mono" style="width:4rem" />
+            <span class="cat-off">{{ offsetLabel(row.draftOffset ?? 0) }}</span>
+            <select v-model="row.draftDataType" class="cat-dt">
+              <option value="">데이터 타입</option>
+              <option v-for="d in dataTypeList" :key="d.code" :value="d.code">{{ d.name }}</option>
+            </select>
+            <button class="act act--ghost" @click="addCategory(row)">+ 추가</button>
+          </div>
         </div>
         <button class="act act--ghost" @click="addRow">+ 구간 추가</button>
       </div>
@@ -244,4 +248,8 @@ async function removePolicy(p: View) {
 .order-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; padding: 0; list-style: none; }
 .order-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 .order-label { flex: 1; font-size: 12.5px; color: var(--ink); }
+.cat-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; }
+.cat-add > span:first-child { color: var(--ink-2); }
+.cat-off { font-size: 11px; color: var(--ink-2); min-width: 2.5rem; }
+.cat-dt { min-width: 8rem; }
 </style>

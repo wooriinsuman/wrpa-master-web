@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmtSize, fmtDate } from './format'
+import { fmtSize, fmtDate, fmtDuration } from './format'
 
 describe('fmtSize', () => {
   it('formats bytes into B/KB/MB/GB', () => {
@@ -7,6 +7,15 @@ describe('fmtSize', () => {
     expect(fmtSize(512)).toBe('512 B')
     expect(fmtSize(2048)).toBe('2.0 KB')
     expect(fmtSize(5 * 1024 * 1024)).toBe('5.0 MB')
+  })
+})
+
+describe('fmtDuration', () => {
+  it('formats seconds into 분/초', () => {
+    expect(fmtDuration(0)).toBe('—')
+    expect(fmtDuration(45)).toBe('45초')
+    expect(fmtDuration(300)).toBe('5분')
+    expect(fmtDuration(330)).toBe('5분 30초')
   })
 })
 

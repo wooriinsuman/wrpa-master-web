@@ -6,7 +6,7 @@ import { isStatusCell } from '~/utils/status'
 export interface Column {
   key: string
   label: string
-  kind?: 'text' | 'mono' | 'muted' | 'status' | 'chips'
+  kind?: 'text' | 'mono' | 'muted' | 'status' | 'chips' | 'wrap' | 'tags'
   // Relative width multiplier (flex-grow). Default 1; e.g. 2 = twice the share.
   weight?: number
   // Header click sorting is on by default; set false to opt a column out.
@@ -132,6 +132,14 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
             </template>
             <span v-else class="dt-chip-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
           </template>
+          <!-- tags: array → left-aligned wrapping tags, full text (no truncation).
+               Better readability than comma-joined text for multi-value cells. -->
+          <template v-else-if="c.kind === 'tags'">
+            <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
+              <span v-for="(t, ti) in row[c.key]" :key="ti" class="dt-tag" :title="t">{{ t }}</span>
+            </template>
+            <span v-else class="dt-tag-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
+          </template>
           <span v-else>{{ row[c.key] }}</span>
         </div>
         <div class="dt-td dt-actions"><slot name="actions" :row="row" /></div>
@@ -160,6 +168,12 @@ function sortState(key: string): { dir: Dir; rank: number } | null {
 .dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-align: center; }
 .dt-td--mono { font-family: var(--font-mono); }
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
+/* wrap: 내용을 자르지 않고 줄바꿈해 전체를 보여준다(예: 작업 파일 목록). */
+.dt-td--wrap { white-space: normal; overflow: visible; text-overflow: clip; text-align: left; line-height: 1.5; word-break: break-word; }
+/* tags: 다중 값을 개별 태그로. 왼쪽 정렬·줄바꿈·전체 표시(가독성). */
+.dt-td--tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start; align-items: flex-start; white-space: normal; overflow: visible; text-overflow: clip; text-align: left; }
+.dt-tag { display: inline-flex; padding: 3px 8px; border-radius: 7px; background: var(--th); border: 1px solid var(--line); font-size: 11.5px; color: var(--ink); white-space: normal; word-break: break-word; line-height: 1.35; }
+.dt-tag-empty { color: var(--ink-2); font-size: 12px; }
 /* chips cell: equal-width pills on an aligned grid — rows & columns line up,
    the group is centered (auto-fit collapses empty tracks so justify-content
    can center), and pills never wrap. A pill's track grows to fit its text

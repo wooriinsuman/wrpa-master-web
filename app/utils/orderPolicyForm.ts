@@ -1,11 +1,14 @@
 import type { components } from '#shared/types/api'
-import { buildCategoryKey, parseCategory } from './category'
+import { parseCategory } from './category'
 
-// 한 구간(row)의 편집 모델: 카테고리 순서는 키 배열 (위=우선)
+// 한 구간(row)의 편집 모델: 카테고리 순서는 키 배열 (위=우선).
+// draft* 는 "업적월+데이터타입 조합 추가" 입력용 임시값 — 저장/검증에는 쓰이지 않음.
 export interface PolicyRowForm {
   bizDayFrom: number
   bizDayTo: number | null // null = 이후 전체
   order: string[]         // 카테고리 키 "-1:new" 등
+  draftOffset?: number    // 업적월 오프셋 입력(임시)
+  draftDataType?: string  // 데이터 타입 입력(임시)
 }
 
 export interface OrderPolicyForm {
@@ -41,17 +44,4 @@ export function moveOrder(order: string[], index: number, dir: -1 | 1): string[]
   const next = [...order]
   ;[next[index], next[j]] = [next[j]!, next[index]!]
   return next
-}
-
-// 카테고리 후보: 오프셋(0,-1,-2) × 활성 dataType 중 아직 order에 없는 키
-export function categoryCandidates(order: string[], dataTypeCodes: string[]): string[] {
-  const used = new Set(order)
-  const out: string[] = []
-  for (const offset of [0, -1, -2]) {
-    for (const code of dataTypeCodes) {
-      const key = buildCategoryKey(offset, code)
-      if (!used.has(key)) out.push(key)
-    }
-  }
-  return out
 }

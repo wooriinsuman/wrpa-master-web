@@ -92,7 +92,7 @@ async function save() {
         </div>
         <span v-else class="muted">사용 가능한 역할이 없습니다.</span>
       </div>
-      <label class="fld"><span>메모</span><input v-model="form.memo" /></label>
+      <label class="fld"><span>메모</span><textarea v-model="form.memo" rows="3" placeholder="메모"></textarea></label>
       <template #footer>
         <button class="act act--ghost" @click="drawerOpen = false">취소</button>
         <button class="act act--primary" @click="save">저장</button>
