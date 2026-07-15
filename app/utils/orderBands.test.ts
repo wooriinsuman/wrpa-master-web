@@ -45,6 +45,14 @@ describe('orderBands', () => {
       expect(segs[0]!.leftPct).toBeCloseTo(((10 - 1) / 20) * 100)
       expect(segs[0]!.widthPct).toBeCloseTo(((20 - 9) / 20) * 100)
     })
+    it('open row(bizDayTo undefined): null과 동일하게 이후 전체로 정규화', () => {
+      // API는 열린 구간의 bizDayTo를 undefined로 반환한다.
+      const rows: BandRow[] = [{ bizDayFrom: 6, order: [] }]
+      const segs = bandSegments(rows, 23)
+      expect(segs[0]!.open).toBe(true)
+      expect(segs[0]!.to).toBeNull()
+      expect(segs[0]!.widthPct).toBeCloseTo(((23 - 5) / 23) * 100)
+    })
     it('원본 순서/인덱스 보존', () => {
       const rows: BandRow[] = [
         { bizDayFrom: 5, bizDayTo: 8, order: [] },

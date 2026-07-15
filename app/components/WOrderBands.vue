@@ -7,8 +7,8 @@ import { categoryLabel } from '~/utils/category'
 const props = withDefaults(defineProps<{
   rows: BandRow[]
   dataTypeNames: Record<string, string>
-  compact?: boolean
-}>(), { compact: false })
+  summary?: boolean
+}>(), { summary: false })
 
 const axisMax = computed(() => bandAxisMax(props.rows))
 const segments = computed(() => bandSegments(props.rows, axisMax.value))
@@ -36,25 +36,28 @@ function chips(order: string[]): { shown: string[]; extra: number } {
   const labels = order.map(k => categoryLabel(k, props.dataTypeNames))
   return { shown: labels.slice(0, 3), extra: Math.max(0, labels.length - 3) }
 }
-const stripTitle = computed(() => ok.value
-  ? '겹침·공백 없음'
-  : [...overlapRanges.value.map(r => `겹침 ${r}`), ...gapRanges.value.map(r => `공백 ${r}`)].join(', '))
+// 요약(목록) 모드: 카테고리 우선순위를 '›'로 이은 한 줄.
+function catLine(order: string[]): string {
+  return order.length ? order.map(k => categoryLabel(k, props.dataTypeNames)).join(' › ') : '—'
+}
 </script>
 
 <template>
-  <div class="obands" :class="{ 'obands--compact': compact }">
+  <div class="obands">
     <template v-if="segments.length === 0">
-      <div v-if="!compact" class="obands-empty">구간 없음</div>
+      <div class="obands-empty">구간 없음</div>
     </template>
 
-    <div v-else-if="compact" class="obands-strip" :title="stripTitle">
-      <span
-        v-for="seg in segments"
-        :key="seg.index"
-        class="obands-block"
-        :class="{ 'obands-block--danger': isOverlapping(seg.index) }"
-        :style="{ left: seg.leftPct + '%', width: seg.widthPct + '%' }"
-      />
+    <div v-else-if="summary" class="obands-sum">
+      <div class="obands-sum-head">
+        구간 {{ segments.length }}개
+        <span v-if="overlaps.length" class="obands-sum-warn">⚠ 겹침</span>
+        <span v-if="gaps.length" class="obands-sum-warn">⚠ 공백</span>
+      </div>
+      <div v-for="seg in segments" :key="seg.index" class="obands-sum-line">
+        <span class="obands-sum-range">영업일 {{ rangeText(seg.from, seg.to) }}</span>
+        <span class="obands-sum-cats">{{ catLine(seg.order) }}</span>
+      </div>
     </div>
 
     <template v-else>
@@ -120,7 +123,10 @@ const stripTitle = computed(() => ok.value
 .obands-chip { padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-size: 10.5px; }
 .obands-chip--more { color: var(--ink-2); background: var(--th); border-style: dashed; }
 
-.obands-strip { position: relative; height: 12px; width: 100%; min-width: 60px; border-radius: 4px; background: var(--th); border: 1px solid var(--line); overflow: hidden; }
-.obands-block { position: absolute; top: 0; bottom: 0; background: var(--run); opacity: .7; }
-.obands-block--danger { background: var(--fail); opacity: .85; }
+.obands-sum { display: flex; flex-direction: column; gap: 3px; text-align: left; }
+.obands-sum-head { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--ink-2); }
+.obands-sum-warn { color: var(--fail); }
+.obands-sum-line { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.obands-sum-range { min-width: 4.4rem; font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.obands-sum-cats { font-size: 12px; color: var(--ink); }
 </style>

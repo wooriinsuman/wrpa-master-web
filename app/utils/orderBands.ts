@@ -5,7 +5,7 @@
 
 export interface BandRow {
   bizDayFrom: number
-  bizDayTo: number | null // null = 이후 전체
+  bizDayTo?: number | null // null/undefined = 이후 전체 (API는 미지정 시 undefined 반환)
   order: string[]
 }
 
@@ -39,11 +39,12 @@ function clampPct(n: number): number {
 // rows를 축 길이 axisMax 기준 백분율 좌표(leftPct/widthPct)로 변환. 원본 순서/인덱스를 보존한다.
 export function bandSegments(rows: BandRow[], axisMax: number): BandSegment[] {
   return rows.map((r, index) => {
-    const open = r.bizDayTo === null
-    const effectiveTo = open ? axisMax : r.bizDayTo!
+    const to = r.bizDayTo ?? null // null/undefined 모두 이후 전체로 정규화
+    const open = to === null
+    const effectiveTo = open ? axisMax : to
     const leftPct = clampPct(((r.bizDayFrom - 1) / axisMax) * 100)
     const widthPct = clampPct(((effectiveTo - (r.bizDayFrom - 1)) / axisMax) * 100)
-    return { index, from: r.bizDayFrom, to: r.bizDayTo, open, leftPct, widthPct, order: r.order }
+    return { index, from: r.bizDayFrom, to, open, leftPct, widthPct, order: r.order }
   })
 }
 
@@ -71,8 +72,8 @@ export function bandIssues(rows: BandRow[]): { overlaps: BandOverlap[]; gaps: Ba
     for (let j = i + 1; j < rows.length; j++) {
       const ri = rows[i]!
       const rj = rows[j]!
-      const toI = ri.bizDayTo === null ? Infinity : ri.bizDayTo
-      const toJ = rj.bizDayTo === null ? Infinity : rj.bizDayTo
+      const toI = ri.bizDayTo ?? Infinity // null/undefined = 이후 전체(+∞)
+      const toJ = rj.bizDayTo ?? Infinity
       const overlapFrom = Math.max(ri.bizDayFrom, rj.bizDayFrom)
       const overlapTo = Math.min(toI, toJ)
       if (overlapFrom <= overlapTo) {

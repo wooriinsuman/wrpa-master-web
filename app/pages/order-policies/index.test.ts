@@ -42,7 +42,7 @@ describe('order-policies page', () => {
     document.body.innerHTML = ''
   })
 
-  it('renders policy rows with company name, "회사 기본" label and a compact band summary', async () => {
+  it('renders policy rows with company name, "회사 기본" label and a per-band summary', async () => {
     listMock.mockResolvedValue([
       {
         id: 'p1',
@@ -56,7 +56,10 @@ describe('order-policies page', () => {
     const el = await mountSuspended(OrderPoliciesPage)
     expect(el.text()).toContain('테스트회사')
     expect(el.text()).toContain('회사 기본')
-    expect(el.find('.obands-strip').exists()).toBe(true)
+    expect(el.find('.obands-sum').exists()).toBe(true)
+    expect(el.text()).toContain('구간 1개')
+    expect(el.text()).toContain('영업일 1–2')
+    expect(el.text()).toContain('전월 신계약 › 당월 신계약')
     expect(listMock).toHaveBeenCalledWith('c1')
   })
 

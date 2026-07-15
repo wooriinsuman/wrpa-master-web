@@ -55,7 +55,7 @@ const columns: Column[] = [
   { key: 'company', label: '회사', kind: 'text' },
   { key: 'insurer', label: '보험사', kind: 'text' },
   { key: 'rowCount', label: '구간 수', kind: 'mono' },
-  { key: 'summary', label: '요약', kind: 'muted', weight: 2, sortable: false },
+  { key: 'summary', label: '요약', kind: 'wrap', weight: 2, sortable: false },
 ]
 
 // 보험사 필터 (client-side): 목록에 실제로 존재하는 코드만 옵션으로 노출.
@@ -248,7 +248,7 @@ async function removePolicy(p: View) {
 
     <WDataTable v-if="rows.length" selectable v-model:selected="selected" :columns="columns" :rows="rows" :actions-width="140">
       <template #cell-summary="{ row }">
-        <WOrderBands :rows="row._src.rows" :dataTypeNames="dataTypeNames" compact />
+        <WOrderBands :rows="row._src.rows" :dataTypeNames="dataTypeNames" summary />
       </template>
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openEdit(row._src)">상세</button>
