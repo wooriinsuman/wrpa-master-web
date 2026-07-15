@@ -140,28 +140,30 @@ function toggleAll() {
         </div>
         <div v-if="indexColumn" class="dt-td dt-td--idx">{{ i + 1 }}</div>
         <div v-for="c in columns" :key="c.key" class="dt-td" :class="`dt-td--${c.kind ?? 'text'}`" :style="c.weight ? { flexGrow: c.weight } : undefined">
-          <template v-if="c.kind === 'status'">
-            <WStatusBadge v-if="isStatusCell(row[c.key])" :label="row[c.key].label" :kind="row[c.key].kind" />
-            <WStatusBadge v-else :label="String(row[c.key])" />
-          </template>
-          <!-- chips: array → equal-width pills on an aligned grid; a name too long
-               for its column is ellipsis-truncated (full name on hover / dialog).
-               string → muted text (e.g. a "배정 안됨" placeholder). -->
-          <template v-else-if="c.kind === 'chips'">
-            <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
-              <span v-for="(chip, ci) in row[c.key]" :key="ci" class="dt-chip"><span class="dt-chip-t" :title="chip">{{ chip }}</span></span>
+          <slot :name="`cell-${c.key}`" :row="row" :value="row[c.key]">
+            <template v-if="c.kind === 'status'">
+              <WStatusBadge v-if="isStatusCell(row[c.key])" :label="row[c.key].label" :kind="row[c.key].kind" />
+              <WStatusBadge v-else :label="String(row[c.key])" />
             </template>
-            <span v-else class="dt-chip-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
-          </template>
-          <!-- tags: array → left-aligned wrapping tags, full text (no truncation).
-               Better readability than comma-joined text for multi-value cells. -->
-          <template v-else-if="c.kind === 'tags'">
-            <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
-              <span v-for="(t, ti) in row[c.key]" :key="ti" class="dt-tag" :title="t">{{ t }}</span>
+            <!-- chips: array → equal-width pills on an aligned grid; a name too long
+                 for its column is ellipsis-truncated (full name on hover / dialog).
+                 string → muted text (e.g. a "배정 안됨" placeholder). -->
+            <template v-else-if="c.kind === 'chips'">
+              <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
+                <span v-for="(chip, ci) in row[c.key]" :key="ci" class="dt-chip"><span class="dt-chip-t" :title="chip">{{ chip }}</span></span>
+              </template>
+              <span v-else class="dt-chip-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
             </template>
-            <span v-else class="dt-tag-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
-          </template>
-          <span v-else>{{ row[c.key] }}</span>
+            <!-- tags: array → left-aligned wrapping tags, full text (no truncation).
+                 Better readability than comma-joined text for multi-value cells. -->
+            <template v-else-if="c.kind === 'tags'">
+              <template v-if="Array.isArray(row[c.key]) && row[c.key].length">
+                <span v-for="(t, ti) in row[c.key]" :key="ti" class="dt-tag" :title="t">{{ t }}</span>
+              </template>
+              <span v-else class="dt-tag-empty">{{ Array.isArray(row[c.key]) ? '—' : row[c.key] }}</span>
+            </template>
+            <span v-else>{{ row[c.key] }}</span>
+          </slot>
         </div>
         <div class="dt-td dt-actions"><slot name="actions" :row="row" /></div>
       </div>

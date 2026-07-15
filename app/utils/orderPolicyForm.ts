@@ -37,11 +37,40 @@ export function validateOrderPolicyForm(f: OrderPolicyForm): string | null {
   return null
 }
 
+export interface CopyTargetSource { companyId: string; insuranceCompanyCode?: string | null }
+
+// 복사 대상 유효성. targetInsurer '' = 회사 기본. targetCompanyPolicies = 대상 회사의 기존 정책 목록.
+// 반환: 에러 메시지(한국어) 또는 null(정상).
+export function validateCopyTarget(
+  source: CopyTargetSource,
+  targetCompanyId: string,
+  targetInsurer: string,
+  targetCompanyPolicies: { insuranceCompanyCode?: string | null }[],
+): string | null {
+  if (!targetCompanyId) return '대상 회사를 선택하세요'
+  const srcInsurer = source.insuranceCompanyCode ?? ''
+  if (targetCompanyId === source.companyId && targetInsurer === srcInsurer) return '원본과 같은 대상입니다'
+  if (targetCompanyPolicies.some(p => (p.insuranceCompanyCode ?? '') === targetInsurer)) {
+    return '이미 해당 회사·보험사 정책이 있습니다. 수정에서 변경하세요.'
+  }
+  return null
+}
+
 // 순서 배열 안에서 항목을 위/아래로 이동 (불변 반환)
 export function moveOrder(order: string[], index: number, dir: -1 | 1): string[] {
   const j = index + dir
   if (j < 0 || j >= order.length) return order
   const next = [...order]
   ;[next[index], next[j]] = [next[j]!, next[index]!]
+  return next
+}
+
+// 순서 배열에서 from 위치 항목을 to 위치로 이동 (불변 반환). moveOrder와 병존.
+// 네이티브 드래그앤드롭(항목 i를 드래그해 위치 j에 드롭) 백엔드로 사용.
+export function reorder(order: string[], from: number, to: number): string[] {
+  if (from === to || from < 0 || from >= order.length || to < 0 || to >= order.length) return order
+  const next = [...order]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item!)
   return next
 }

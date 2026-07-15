@@ -6,13 +6,15 @@ import { categoryLabel, buildCategoryKey, offsetLabel, sortByDataTypeOrder } fro
 import { extractApiError } from '~/utils/apiError'
 import {
   moveOrder,
+  reorder,
+  validateCopyTarget,
   validateOrderPolicyForm,
   type OrderPolicyForm,
   type PolicyRowForm,
 } from '~/utils/orderPolicyForm'
 
 type View = components['schemas']['OrderPolicyView']
-interface PolicyListRow { id: string; company: string; insurer: string; rowCount: number; summary: string; _src: View }
+interface PolicyListRow { id: string; company: string; insurer: string; rowCount: number; _src: View }
 
 const orderPolicies = useOrderPolicies()
 const clients = useClients()
@@ -53,17 +55,29 @@ const columns: Column[] = [
   { key: 'company', label: '회사', kind: 'text' },
   { key: 'insurer', label: '보험사', kind: 'text' },
   { key: 'rowCount', label: '구간 수', kind: 'mono' },
-  { key: 'summary', label: '요약', kind: 'muted' },
+  { key: 'summary', label: '요약', kind: 'muted', weight: 2, sortable: false },
 ]
 
-const rows = computed<PolicyListRow[]>(() => list.value.map(p => ({
+// 보험사 필터 (client-side): 목록에 실제로 존재하는 코드만 옵션으로 노출.
+const insurerFilter = ref('')
+const DEFAULT_INSURER = '__default__'
+const insurerFilterOptions = computed(() => {
+  const codes = [...new Set(list.value.map(p => p.insuranceCompanyCode).filter((c): c is string => !!c))]
+  return codes.map(code => ({ code, name: insurerName(code) }))
+})
+watch(companyId, () => { insurerFilter.value = '' })
+
+const filteredList = computed<View[]>(() => {
+  if (!insurerFilter.value) return list.value
+  if (insurerFilter.value === DEFAULT_INSURER) return list.value.filter(p => !p.insuranceCompanyCode)
+  return list.value.filter(p => p.insuranceCompanyCode === insurerFilter.value)
+})
+
+const rows = computed<PolicyListRow[]>(() => filteredList.value.map(p => ({
   id: p.id,
   company: companyName(p.companyId),
   insurer: p.insuranceCompanyCode ? insurerName(p.insuranceCompanyCode) : '회사 기본',
   rowCount: p.rows.length,
-  summary: p.rows[0]?.order.length
-    ? p.rows[0].order.map(k => categoryLabel(k, dataTypeNames.value)).join(' → ')
-    : '—',
   _src: p,
 })))
 
@@ -131,6 +145,73 @@ async function save() {
   }
 }
 
+// --- 카테고리 순서 드래그앤드롭 (같은 구간(row) 내에서만 재정렬) ---
+const dragFrom = ref<{ ri: number; oi: number } | null>(null)
+const dragOver = ref<{ ri: number; oi: number } | null>(null)
+
+function onDragStart(ri: number, oi: number) {
+  dragFrom.value = { ri, oi }
+}
+function onDragOverItem(ri: number, oi: number) {
+  dragOver.value = { ri, oi }
+}
+function onDrop(ri: number, oi: number) {
+  const from = dragFrom.value
+  if (from && from.ri === ri) {
+    form.value.rows[ri]!.order = reorder(form.value.rows[ri]!.order, from.oi, oi)
+  }
+  dragFrom.value = null
+  dragOver.value = null
+}
+function onDragEnd() {
+  dragFrom.value = null
+  dragOver.value = null
+}
+
+// --- 선택 복사 ---
+const selected = ref<string[]>([])
+const copyOpen = ref(false)
+const copySource = ref<View | null>(null)
+const copyTargetCompany = ref('')
+const copyTargetInsurer = ref('')
+
+function openCopy() {
+  copySource.value = list.value.find(p => p.id === selected.value[0]) ?? null
+  if (!copySource.value) {
+    push('한 개의 정책을 선택하세요')
+    return
+  }
+  copyTargetCompany.value = copySource.value.companyId
+  copyTargetInsurer.value = ''
+  copyOpen.value = true
+}
+
+async function doCopy() {
+  const source = copySource.value
+  if (!source) return
+  const targetPolicies = await orderPolicies.list(copyTargetCompany.value)
+  const err = validateCopyTarget(source, copyTargetCompany.value, copyTargetInsurer.value, targetPolicies)
+  if (err) {
+    push(err)
+    return
+  }
+  const form: OrderPolicyForm = {
+    companyId: copyTargetCompany.value,
+    insuranceCompanyCode: copyTargetInsurer.value,
+    rows: source.rows.map(r => ({ bizDayFrom: r.bizDayFrom, bizDayTo: r.bizDayTo ?? null, order: [...r.order] })),
+  }
+  try {
+    await orderPolicies.create(form)
+    push('복사되었습니다.', 'success')
+    copyOpen.value = false
+    selected.value = []
+    if (copyTargetCompany.value !== companyId.value) companyId.value = copyTargetCompany.value
+    else await refresh()
+  } catch (e: any) {
+    push(extractApiError(e, '복사에 실패했습니다.'), 'error')
+  }
+}
+
 async function removePolicy(p: View) {
   const insurer = p.insuranceCompanyCode ? insurerName(p.insuranceCompanyCode) : '회사 기본'
   if (!confirm(`${companyName(p.companyId)} / ${insurer} 정책을 삭제할까요?`)) return
@@ -155,11 +236,20 @@ async function removePolicy(p: View) {
         <select v-model="companyId" class="hd-year">
           <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <select v-model="insurerFilter" class="hd-year">
+          <option value="">전체</option>
+          <option value="__default__">회사 기본</option>
+          <option v-for="o in insurerFilterOptions" :key="o.code" :value="o.code">{{ o.name }}</option>
+        </select>
+        <button class="act act--ghost" :disabled="selected.length !== 1" @click="openCopy">선택 복사</button>
         <button class="act act--primary" @click="openCreate">+ 정책 등록</button>
       </div>
     </div>
 
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="140">
+    <WDataTable v-if="rows.length" selectable v-model:selected="selected" :columns="columns" :rows="rows" :actions-width="140">
+      <template #cell-summary="{ row }">
+        <WOrderBands :rows="row._src.rows" :dataTypeNames="dataTypeNames" compact />
+      </template>
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openEdit(row._src)">상세</button>
         <button class="act act--danger" @click="removePolicy(row._src)">삭제</button>
@@ -192,6 +282,7 @@ async function removePolicy(p: View) {
 
       <div class="fld">
         <span>영업일 구간</span>
+        <WOrderBands :rows="form.rows" :dataTypeNames="dataTypeNames" />
         <div v-for="(row, ri) in form.rows" :key="ri" class="roles">
           <div class="fld fld--row">
             <span>영업일</span>
@@ -208,7 +299,18 @@ async function removePolicy(p: View) {
             <button class="act act--danger" style="margin-left:auto" @click="removeRow(ri)">구간 삭제</button>
           </div>
           <ol class="order-list">
-            <li v-for="(key, oi) in row.order" :key="key" class="order-item">
+            <li
+              v-for="(key, oi) in row.order"
+              :key="key"
+              class="order-item"
+              :class="{ dragging: dragFrom?.ri === ri && dragFrom?.oi === oi, 'drop-target': dragOver?.ri === ri && dragOver?.oi === oi }"
+              draggable="true"
+              @dragstart="onDragStart(ri, oi)"
+              @dragover.prevent="onDragOverItem(ri, oi)"
+              @drop="onDrop(ri, oi)"
+              @dragend="onDragEnd"
+            >
+              <span class="order-handle">⠿</span>
               <span class="order-label">{{ categoryLabel(key, dataTypeNames) }}</span>
               <button class="act act--ghost" :disabled="oi === 0" @click="row.order = moveOrder(row.order, oi, -1)">↑</button>
               <button class="act act--ghost" :disabled="oi === row.order.length - 1" @click="row.order = moveOrder(row.order, oi, 1)">↓</button>
@@ -234,6 +336,32 @@ async function removePolicy(p: View) {
         <button class="act act--primary" @click="save">저장</button>
       </template>
     </WDrawer>
+
+    <WDrawer
+      v-model:open="copyOpen"
+      title="정책 복사"
+      description="선택한 정책을 다른 회사/보험사로 복사합니다."
+    >
+      <div v-if="copySource" class="fld">
+        <span>원본: {{ companyName(copySource.companyId) }} / {{ copySource.insuranceCompanyCode ? insurerName(copySource.insuranceCompanyCode) : '회사 기본' }}</span>
+      </div>
+      <label class="fld"><span>대상 회사 <span class="req">*</span></span>
+        <select v-model="copyTargetCompany">
+          <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </label>
+      <label class="fld"><span>대상 보험사 (비우면 회사 기본)</span>
+        <select v-model="copyTargetInsurer">
+          <option value="">회사 기본</option>
+          <option v-for="i in insurerList" :key="i.code" :value="i.code">{{ i.name }}</option>
+        </select>
+      </label>
+
+      <template #footer>
+        <button class="act act--ghost" @click="copyOpen = false">취소</button>
+        <button class="act act--primary" @click="doCopy">복사</button>
+      </template>
+    </WDrawer>
   </section>
 </template>
 
@@ -246,7 +374,10 @@ async function removePolicy(p: View) {
 .hd-actions { display: flex; gap: 10px; align-items: center; }
 .hd-year { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font-mono); font-size: 12.5px; background: var(--th); color: var(--ink); }
 .order-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; padding: 0; list-style: none; }
-.order-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.order-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); transition: opacity .15s ease, border-color .15s ease; }
+.order-item.dragging { opacity: .4; }
+.order-item.drop-target { border-color: var(--run); border-style: dashed; }
+.order-handle { cursor: grab; color: var(--ink-2); font-size: 13px; line-height: 1; user-select: none; }
 .order-label { flex: 1; font-size: 12.5px; color: var(--ink); }
 .cat-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; }
 .cat-add > span:first-child { color: var(--ink-2); }
