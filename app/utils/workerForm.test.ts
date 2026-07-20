@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { blankWorkerForm, workerTypeLabel, workerStateLabel } from './workerForm'
+import {
+  blankWorkerForm, workerTypeLabel, workerStateLabel,
+  blankWorkerCreateForm, toCreateWorkerRequest, WORKER_TYPE_OPTIONS,
+} from './workerForm'
 
 describe('blankWorkerForm', () => {
   it('starts with empty company/insurer assignment', () => {
@@ -7,13 +10,42 @@ describe('blankWorkerForm', () => {
   })
 })
 
-describe('workerTypeLabel', () => {
-  it('maps legacy WorkerType codes to Korean', () => {
-    expect(workerTypeLabel('ContractCrawl')).toBe('보험사 전산 RPA')
-    expect(workerTypeLabel('GuaranteeInsuranceCrawl')).toBe('보증보험 RPA')
+describe('blankWorkerCreateForm', () => {
+  it('defaults type to ContractCrawl, empty name, active (not paused)', () => {
+    expect(blankWorkerCreateForm()).toEqual({ name: '', type: 'ContractCrawl', paused: false })
   })
-  it('falls back to the raw value (or —) for unknown/empty', () => {
+})
+
+describe('WORKER_TYPE_OPTIONS', () => {
+  it('exposes the selectable types (currently only ContractCrawl)', () => {
+    expect(WORKER_TYPE_OPTIONS).toEqual([{ value: 'ContractCrawl', label: '보험사 전산 RPA' }])
+  })
+})
+
+describe('toCreateWorkerRequest', () => {
+  it('trims the name and passes name/type/paused through', () => {
+    expect(toCreateWorkerRequest({ name: '  win-worker-1 ', type: 'ContractCrawl', paused: false }))
+      .toEqual({ name: 'win-worker-1', type: 'ContractCrawl', paused: false })
+  })
+  it('carries the paused flag when set', () => {
+    expect(toCreateWorkerRequest({ name: 'w', type: 'ContractCrawl', paused: true }))
+      .toEqual({ name: 'w', type: 'ContractCrawl', paused: true })
+  })
+  it('rejects an empty (or whitespace-only) name', () => {
+    expect(() => toCreateWorkerRequest({ name: '   ', type: 'ContractCrawl', paused: false })).toThrow('워커 이름')
+  })
+  it('rejects an empty type', () => {
+    expect(() => toCreateWorkerRequest({ name: 'w', type: '', paused: false })).toThrow('워커 유형')
+  })
+})
+
+describe('workerTypeLabel', () => {
+  it('maps the ContractCrawl code to Korean', () => {
+    expect(workerTypeLabel('ContractCrawl')).toBe('보험사 전산 RPA')
+  })
+  it('falls back to the raw value (or —) for unmapped/empty', () => {
     expect(workerTypeLabel('crawler')).toBe('crawler')
+    expect(workerTypeLabel('GuaranteeInsuranceCrawl')).toBe('GuaranteeInsuranceCrawl') // 제거된 레거시 유형은 원본 코드로 표시
     expect(workerTypeLabel('')).toBe('—')
   })
 })

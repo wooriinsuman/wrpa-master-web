@@ -4,7 +4,8 @@ import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
 import { formatSince, livenessCell, msToSec } from '~/utils/dashboardState'
-import { workerTypeLabel } from '~/utils/workerForm'
+import { workerTypeLabel, blankWorkerCreateForm, toCreateWorkerRequest, WORKER_TYPE_OPTIONS, type WorkerCreateForm } from '~/utils/workerForm'
+import { extractApiError } from '~/utils/apiError'
 
 type WorkerView = components['schemas']['WorkerView']
 
@@ -21,6 +22,8 @@ interface WorkerRow {
   hid: StatusCell
   lastSeen: string // 상대시간 텍스트. 색(생사)은 status 컬럼이 전담 — 여긴 근거 데이터만.
   status: StatusCell
+  assign: StatusCell // 작업 배정 상태(배정중/중단) — paused 파생
+  paused: boolean
   companyIds: string[]
   insurerIds: string[]
 }
@@ -81,6 +84,9 @@ const rows = computed<WorkerRow[]>(() => {
       // 상태는 워커가 보고한 state 대신 last-seen 파생 생사(온라인/지연/오프라인).
       // 하드 크래시 시 보고 state는 최대 5분 얼어붙어 신뢰할 수 없기 때문.
       status: live,
+      // 배정 상태는 생사와 별개(paused는 online이어도 작업만 안 받음).
+      assign: w.paused ? { label: '일시중지', kind: 'warn' } : { label: '정상', kind: 'done' },
+      paused: w.paused,
       companyIds,
       insurerIds,
     }
@@ -100,6 +106,7 @@ const columns: Column[] = [
   { key: 'hid', label: 'HID', kind: 'status' },
   { key: 'lastSeen', label: '최근 접속', kind: 'text', sortable: false },
   { key: 'status', label: '상태', kind: 'status' },
+  { key: 'assign', label: '배정', kind: 'status' },
 ]
 
 // --- 배정 편집 드로어 (이름/유형은 워커 보고값 → 읽기전용) ---
@@ -173,15 +180,88 @@ async function confirmRemove() {
 async function rotate(row: WorkerRow) {
   try {
     const res = await workers.rotateKey(row.id)
+    keyForCreate.value = false
     revealKey(res.apiKey)
   } catch {
     push('키 재발급에 실패했습니다.', 'error')
   }
 }
 
-// --- 1회성 API 키 노출 ---
+// 작업 배정 일시중지/재개 토글.
+async function togglePause(row: WorkerRow) {
+  try {
+    if (row.paused) await workers.resume(row.id)
+    else await workers.pause(row.id)
+    await refresh()
+    push(row.paused ? '작업을 재개했습니다.' : '작업을 일시중지했습니다.', 'success')
+  } catch (e) {
+    push(extractApiError(e, '상태 변경에 실패했습니다.'), 'error')
+  }
+}
+
+// --- 워커 생성 (관리자가 미리 생성 → 키 발급) ---
+const createOpen = ref(false)
+const createForm = ref<WorkerCreateForm>(blankWorkerCreateForm())
+const createCompanyIds = ref<string[]>([]) // 생성 시 함께 배정할 회사
+const createInsurerIds = ref<string[]>([]) // 생성 시 함께 배정할 보험사
+function toggleCreateCompany(id: string) {
+  createCompanyIds.value = createCompanyIds.value.includes(id)
+    ? createCompanyIds.value.filter(x => x !== id) : [...createCompanyIds.value, id]
+}
+function toggleCreateInsurer(id: string) {
+  createInsurerIds.value = createInsurerIds.value.includes(id)
+    ? createInsurerIds.value.filter(x => x !== id) : [...createInsurerIds.value, id]
+}
+const creating = ref(false) // 저장 진행 중 — 이중 제출(중복 워커·키) 방지
+function openCreate() {
+  createForm.value = blankWorkerCreateForm()
+  createCompanyIds.value = []
+  createInsurerIds.value = []
+  createOpen.value = true
+}
+async function saveCreate() {
+  if (creating.value) return
+  // 0) 폼 검증은 생성 호출 전에 — 검증 메시지(빈 이름 등)를 그대로 노출.
+  let body: ReturnType<typeof toCreateWorkerRequest>
+  try {
+    body = toCreateWorkerRequest(createForm.value)
+  } catch (e: any) {
+    push(e?.message ?? '입력값을 확인하세요.', 'error')
+    return
+  }
+  creating.value = true
+  const hadCompanies = createCompanyIds.value.length > 0
+  // 1) 워커 생성 (키는 이 응답에서만 1회 노출 — 실패 시 즉시 중단)
+  let created: { id: string, apiKey: string }
+  try {
+    created = await workers.create(body)
+  } catch (e) {
+    push(extractApiError(e, '워커 생성에 실패했습니다.'), 'error')
+    creating.value = false
+    return
+  }
+  // 2) 키를 먼저 노출(배정 실패와 무관하게 키를 잃지 않도록)
+  createOpen.value = false
+  keyForCreate.value = true
+  keyCreateNoCompany.value = !hadCompanies // 회사 미선택 시에만 배정 안내
+  revealKey(created.apiKey)
+  // 3) 선택한 회사·보험사 배정 (생성된 id로 assign)
+  try {
+    for (const cid of createCompanyIds.value) await workers.assignCompany(created.id, cid)
+    for (const iid of createInsurerIds.value) await workers.assignInsurer(created.id, iid)
+    push('워커가 생성되었습니다.', 'success')
+  } catch (e) {
+    push(extractApiError(e, '워커는 생성됐지만 배정 중 오류가 발생했습니다. 목록의 「배정」에서 다시 시도하세요.'), 'error')
+  }
+  try { await refresh() } catch { /* 목록 갱신 실패는 무시(다음 상호작용에 갱신됨) */ }
+  creating.value = false
+}
+
+// --- 1회성 API 키 노출 (생성·재발급 공용) ---
 const keyOpen = ref(false)
 const revealedKey = ref('')
+const keyForCreate = ref(false) // true면 생성 직후(회사 배정 안내 대상)
+const keyCreateNoCompany = ref(false) // 생성 시 회사를 하나도 안 골랐을 때만 안내
 function revealKey(key: string) {
   revealedKey.value = key
   keyOpen.value = true
@@ -198,10 +278,11 @@ async function copyKey() {
 
 <template>
   <section class="panel">
-    <WPageHeader title="워커" desc="RPA 워커 호스트 · 자기 등록되며 배정(회사·보험사)만 관리합니다"
-      v-model:search="search" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" index-column :actions-width="208">
+    <WPageHeader title="워커" desc="RPA 워커 호스트 · 미리 생성해 키를 발급하고 배정(회사·보험사)을 관리합니다"
+      add-label="+ 워커 등록" v-model:search="search" @add="openCreate" />
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" index-column :actions-width="288">
       <template #actions="{ row }">
+        <button class="act act--ghost" @click="togglePause(row as WorkerRow)">{{ (row as WorkerRow).paused ? '재개' : '일시중지' }}</button>
         <button class="act act--ghost" @click="rotate(row as WorkerRow)">키 재발급</button>
         <button class="act act--ghost" @click="openEdit(row as WorkerRow)">배정</button>
         <button class="act act--danger" @click="askRemove(row as WorkerRow)">삭제</button>
@@ -209,6 +290,43 @@ async function copyKey() {
     </WDataTable>
     <WEmptyState v-else title="워커가 없습니다"
       :message="pending ? '불러오는 중…' : '워커가 등록되면 여기에 표시됩니다.'" />
+
+    <WDrawer v-model:open="createOpen" title="워커 등록" description="워커를 미리 생성합니다. 저장하면 API 키가 1회 표시됩니다.">
+      <label class="fld">
+        <span>이름 <span class="req">*</span></span>
+        <input v-model="createForm.name" placeholder="win-worker-1" />
+      </label>
+      <label class="fld">
+        <span>유형 <span class="req">*</span></span>
+        <select v-model="createForm.type">
+          <option v-for="o in WORKER_TYPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+      </label>
+      <div class="fld">
+        <span>회사 <small class="hint">선택 안 하면 작업을 받지 않음 (나중에 「배정」에서 지정 가능)</small></span>
+        <div class="chips">
+          <button v-for="c in clients ?? []" :key="c.id" type="button" class="chip"
+            :class="{ 'chip--on': createCompanyIds.includes(c.id) }" @click="toggleCreateCompany(c.id)"><span class="chip-t" :title="c.name">{{ c.name }}</span></button>
+          <span v-if="!(clients ?? []).length" class="chips-empty">회사 없음</span>
+        </div>
+      </div>
+      <div class="fld">
+        <span>보험사</span>
+        <div class="chips">
+          <button v-for="i in insurers ?? []" :key="i.id" type="button" class="chip"
+            :class="{ 'chip--on': createInsurerIds.includes(i.id) }" @click="toggleCreateInsurer(i.id)"><span class="chip-t" :title="i.name">{{ i.name }}</span></button>
+          <span v-if="!(insurers ?? []).length" class="chips-empty">보험사 없음</span>
+        </div>
+      </div>
+      <label class="fld fld--row">
+        <input type="checkbox" v-model="createForm.paused" />
+        <span>일시중지 상태로 생성 <small class="hint">체크 시 '재개' 전까지 작업을 받지 않음</small></span>
+      </label>
+      <template #footer>
+        <button class="act act--ghost" @click="createOpen = false">취소</button>
+        <button class="act act--primary" :disabled="creating" @click="saveCreate">저장</button>
+      </template>
+    </WDrawer>
 
     <WDrawer v-model:open="crudOpen" title="워커 배정" description="워커가 처리할 회사·보험사를 지정하세요.">
       <div v-if="editing" class="ro">
@@ -247,6 +365,7 @@ async function copyKey() {
     <WDrawer v-model:open="keyOpen" title="API 키" description="워커 API 키입니다. 지금 복사해 두세요.">
       <p class="warn">이 키는 지금만 표시되며 다시 확인할 수 없습니다. 안전한 곳에 복사해 두세요.</p>
       <pre class="codeblock">{{ revealedKey }}</pre>
+      <p v-if="keyForCreate && keyCreateNoCompany" class="hint">회사가 배정되지 않은 워커는 작업을 받지 않습니다. 필요하면 목록의 「배정」에서 지정하세요.</p>
       <template #footer>
         <button class="act act--ghost" @click="keyOpen = false">닫기</button>
         <button class="act act--primary" @click="copyKey">복사</button>
