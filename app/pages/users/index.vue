@@ -12,10 +12,15 @@ interface UserRow { id: string; status: StatusCell; username: string; name: stri
 const users = useUsers()
 const { push } = useToast()
 const { data, refresh, pending } = await useAsyncData('users', async () => {
-  const [list, roleList] = await Promise.all([users.list(), users.roles()])
-  return { list, roleList }
+  const [list, roleList, companyList] = await Promise.all([users.list(), users.roles(), useClients().list()])
+  return { list, roleList, companyList }
 })
 const roleOptions = computed<Role[]>(() => data.value?.roleList ?? [])
+const companyOptions = computed(() => data.value?.companyList ?? [])
+// id→이름 매핑. UserView.roles/companyId가 이름이 아닌 id를 담을 수 있어 목록에선
+// 이름으로 환원한다(매핑 실패 시 원본 값으로 폴백).
+const roleName = computed(() => new Map(roleOptions.value.map(r => [r.id, r.name])))
+const companyName = computed(() => new Map(companyOptions.value.map(c => [c.id, c.name])))
 
 const search = ref('')
 const rows = computed<UserRow[]>(() => {
@@ -24,19 +29,20 @@ const rows = computed<UserRow[]>(() => {
     status: { label: u.active ? '활성' : '정지', kind: u.active ? 'done' : 'idle' } as StatusCell,
     username: u.username,
     name: u.name,
-    roles: (u.roles ?? []).join(', ') || '—',
-    company: u.companyId ?? '—',
+    roles: (u.roles ?? []).map(r => roleName.value.get(r) ?? r).join(', ') || '—',
+    company: u.companyId ? (companyName.value.get(u.companyId) ?? u.companyId) : '—',
   }))
   const q = search.value.trim().toLowerCase()
-  return q ? list.filter(r => [r.username, r.name, r.roles].some(x => String(x).toLowerCase().includes(q))) : list
+  return q ? list.filter(r => [r.username, r.name, r.roles, r.company].some(x => String(x).toLowerCase().includes(q))) : list
 })
 
+// 상태는 다른 목록 메뉴 관례대로 맨 뒤 컬럼.
 const columns: Column[] = [
-  { key: 'status', label: '상태', kind: 'status' },
   { key: 'username', label: '아이디', kind: 'mono' },
   { key: 'name', label: '이름', kind: 'text' },
   { key: 'roles', label: '역할', kind: 'text' },
-  { key: 'company', label: '회사', kind: 'mono' },
+  { key: 'company', label: '회사', kind: 'text' },
+  { key: 'status', label: '상태', kind: 'status' },
 ]
 
 const drawerOpen = ref(false)
@@ -81,7 +87,12 @@ async function save() {
       <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" /></label>
       <label class="fld"><span>이메일</span><input v-model="form.email" type="email" placeholder="user@example.com" /></label>
       <label class="fld"><span>휴대폰</span><input v-model="form.mobile" /></label>
-      <label class="fld"><span>회사 ID</span><input v-model="form.companyId" /></label>
+      <label class="fld"><span>회사</span>
+        <select v-model="form.companyId">
+          <option value="">(회사 없음)</option>
+          <option v-for="c in companyOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </label>
       <div class="fld">
         <span>역할</span>
         <div v-if="roleOptions.length" class="roles">
