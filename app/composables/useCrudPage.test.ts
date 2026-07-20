@@ -115,30 +115,30 @@ describe('useCrudPage', () => {
     expect(pushMock).toHaveBeenCalledWith('수정되었습니다.', 'success')
   })
 
-  it('save() toasts the error message and keeps the drawer open when create rejects', async () => {
+  it('save() toasts the fallback copy and keeps the drawer open when create rejects', async () => {
     const r = makeResource([])
     r.create.mockRejectedValue(new Error('서버 오류'))
     const ctl = await mountWith(r, 't-save-fail')
     ctl.openCreate()
     ctl.form.value = { name: 'X' }
     await ctl.save()
-    expect(pushMock).toHaveBeenCalledWith('서버 오류', 'error')
+    expect(pushMock).toHaveBeenCalledWith('저장에 실패했습니다.', 'error')
     expect(ctl.drawerOpen.value).toBe(true)
   })
 
-  it('remove() toasts the error message when remove rejects (plain Error fallback path)', async () => {
+  it('remove() toasts the fallback copy when remove rejects with a plain Error', async () => {
     const r = makeResource([{ id: '1', name: 'A' }])
     r.remove.mockRejectedValue(new Error('nope'))
     const ctl = await mountWith(r, 't-remove-fail')
     await ctl.remove({ id: '1', name: 'A' })
-    expect(pushMock).toHaveBeenCalledWith('nope', 'error')
+    expect(pushMock).toHaveBeenCalledWith('삭제에 실패했습니다.', 'error')
   })
 
-  it('remove() prefers the nested backend envelope message over the generic fallback', async () => {
+  it('remove() falls back to the caller copy for a generic code instead of surfacing the backend message', async () => {
     const r = makeResource([{ id: '1', name: 'A' }])
     r.remove.mockRejectedValue({ data: { error: { code: 'conflict', message: '작업파일이 참조 중이라 삭제할 수 없습니다' } } })
     const ctl = await mountWith(r, 't-remove-fail-envelope')
     await ctl.remove({ id: '1', name: 'A' })
-    expect(pushMock).toHaveBeenCalledWith('작업파일이 참조 중이라 삭제할 수 없습니다', 'error')
+    expect(pushMock).toHaveBeenCalledWith('삭제에 실패했습니다.', 'error')
   })
 })

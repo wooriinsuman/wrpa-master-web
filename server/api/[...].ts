@@ -1,4 +1,5 @@
 import { buildProxyHeaders } from '../utils/proxy-helpers'
+import { toApiErrorResponse } from '../utils/proxy-error'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -11,23 +12,10 @@ export default defineEventHandler(async (event) => {
       body: ['GET', 'HEAD'].includes(event.method) ? undefined : await readBody(event).catch(() => undefined),
     })
   } catch (err: any) {
-    if (err?.response?.status === 401) {
-      deleteCookie(event, 'access_token')
-      throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-    }
-    // Backend (rpaApiUrl) unreachable — surface a clean 502 instead of an
-    // unhandled ECONNREFUSED stack trace flooding the dev server logs.
-    const code = err?.cause?.code ?? err?.code
-    if (!err?.response && ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'].includes(code)) {
-      // Log the internal target server-side only; never leak the upstream URL
-      // (internal infrastructure) to the client.
-      console.error(`[proxy] RPA API unreachable at ${config.rpaApiUrl}${path} (${code})`)
-      throw createError({
-        statusCode: 502,
-        statusMessage: 'Bad Gateway',
-        message: 'RPA API를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
-      })
-    }
-    throw err
+    // 봉투를 원형 그대로 중계한다. throw하지 않는 이유는 docs/error-handling.md 참조.
+    const { status, body } = toApiErrorResponse(err)
+    if (status === 401) deleteCookie(event, 'access_token')
+    setResponseStatus(event, status)
+    return body
   }
 })

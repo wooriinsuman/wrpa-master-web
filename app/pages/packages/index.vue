@@ -86,7 +86,7 @@ async function confirmRun() {
     await refreshAll()
     push(a.ok, 'success')
   } catch (e: any) {
-    push(e?.data?.message ?? e?.message ?? a.fail, 'error')
+    push(extractApiError(e, a.fail), 'error')
   }
 }
 
@@ -145,7 +145,7 @@ async function doDelete(_g: AccordionGroup, row: { src: any }) {
     await refreshAll()
     push('삭제되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.data?.message ?? e?.message ?? '삭제에 실패했습니다.', 'error')
+    push(extractApiError(e, '삭제에 실패했습니다.'), 'error')
   }
 }
 

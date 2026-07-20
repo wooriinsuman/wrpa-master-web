@@ -13,8 +13,10 @@ async function submit() {
     await $fetch('/api/auth/login', { method: 'POST', body: { username: username.value, password: password.value } })
     await useAuthStore().fetchMe()
     await navigateTo((route.query.redirect as string) || '/')
-  } catch {
-    error.value = '로그인에 실패했습니다. 아이디와 비밀번호를 확인하세요.'
+  } catch (e) {
+    // code별 문구는 app/utils/apiError.ts가 소유한다.
+    // fallback은 백엔드에 새 code가 생겨도 화면이 비지 않게 하는 안전망이다.
+    error.value = extractApiError(e, '로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.')
   } finally {
     busy.value = false
   }
