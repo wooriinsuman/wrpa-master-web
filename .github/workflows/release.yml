@@ -9,7 +9,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml     # 태그 커밋을 install/typecheck/vitest/build (GitHub-hosted)
+
   build-push:
+    needs: ci                            # ci 초록일 때만 빌드/push
     runs-on: [self-hosted, wrpa-dev]
     timeout-minutes: 30
     env:
