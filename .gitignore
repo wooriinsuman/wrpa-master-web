@@ -24,8 +24,9 @@ logs
 .env.*
 !.env.example
 
-# Generated types
-shared/types/api.d.ts
+# shared/types/api.d.ts is committed (generated via `pnpm gen:api`) so CI/fresh
+# checkouts typecheck & build without the sibling wrpa-master-v2 repo. Regenerate
+# and commit whenever ../wrpa-master-v2/api/openapi.yaml changes.
 .superpowers
 
 # Test & AI-workflow artifacts
