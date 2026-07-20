@@ -4,18 +4,32 @@ import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import UsersPage from './index.vue'
 
-const { listMock, rolesMock, companiesMock } = vi.hoisted(() => ({ listMock: vi.fn(), rolesMock: vi.fn(), companiesMock: vi.fn() }))
-mockNuxtImport('useUsers', () => () => ({ list: listMock, roles: rolesMock, create: vi.fn() }))
+const { listMock, rolesMock, companiesMock, createMock, updateMock, setActiveMock } = vi.hoisted(() => ({
+  listMock: vi.fn(), rolesMock: vi.fn(), companiesMock: vi.fn(),
+  createMock: vi.fn(), updateMock: vi.fn(), setActiveMock: vi.fn(),
+}))
+mockNuxtImport('useUsers', () => () => ({ list: listMock, roles: rolesMock, create: createMock, update: updateMock, setActive: setActiveMock }))
 mockNuxtImport('useClients', () => () => ({ list: companiesMock, create: vi.fn(), remove: vi.fn() }))
 mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
 
+const seedUser = { id: 'u1', username: 'admin', name: '관리자', email: 'a@x.io', companyId: 'c1', createdAt: 0, active: true, roles: ['ADMIN'] }
+
+function seedMocks(user = seedUser) {
+  listMock.mockResolvedValue([user])
+  rolesMock.mockResolvedValue([{ id: 'ADMIN', name: '관리자' }])
+  companiesMock.mockResolvedValue([{ id: 'c1', name: '우리인수만', code: 'WRI', active: true }])
+  createMock.mockResolvedValue(undefined)
+  updateMock.mockResolvedValue(undefined)
+  setActiveMock.mockResolvedValue(undefined)
+}
+
+function findByText(el: any, tag: string, text: string) {
+  return el.findAll(tag).find((n: any) => n.text().trim() === text)
+}
+
 describe('users page', () => {
-  it('renders a user row with its username and active status badge', async () => {
-    listMock.mockResolvedValue([
-      { id: 'u1', username: 'admin', name: '관리자', companyId: 'c1', createdAt: 0, active: true, roles: ['ADMIN'] },
-    ])
-    rolesMock.mockResolvedValue([{ id: 'ADMIN', name: '관리자' }])
-    companiesMock.mockResolvedValue([{ id: 'c1', name: '우리인수만', code: 'WRI', active: true }])
+  it('renders a user row with its username, active badge, and name-resolved role/company', async () => {
+    seedMocks()
     const el = await mountSuspended(UsersPage)
     expect(el.text()).toContain('admin')
     expect(el.text()).toContain('사용자 등록')
@@ -23,5 +37,29 @@ describe('users page', () => {
     // companyId/roleId는 이름으로 환원되어 표기된다.
     expect(el.text()).toContain('우리인수만')
     expect(el.text()).toContain('관리자')
+  })
+
+  it('편집 버튼은 프리필된 수정 드로어를 열고 저장 시 update를 호출한다', async () => {
+    seedMocks()
+    const el = await mountSuspended(UsersPage)
+    await findByText(el, 'button', '편집')!.trigger('click')
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r)) // 드로어(reka-ui portal) 마운트 대기
+    // 드로어는 body로 teleport되어 el 밖에 있으므로 document에서 확인.
+    expect(document.body.textContent).toContain('사용자 수정')
+    const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === '저장')
+    expect(saveBtn).toBeTruthy()
+    saveBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await el.vm.$nextTick()
+    expect(updateMock).toHaveBeenCalledWith('u1', expect.objectContaining({ name: '관리자', roleIds: ['ADMIN'] }))
+    expect(createMock).not.toHaveBeenCalled()
+  })
+
+  it('정지 버튼은 setActive(id, false)를 호출한다', async () => {
+    seedMocks()
+    const el = await mountSuspended(UsersPage)
+    await findByText(el, 'button', '정지')!.trigger('click')
+    await el.vm.$nextTick()
+    expect(setActiveMock).toHaveBeenCalledWith('u1', false)
   })
 })

@@ -7,7 +7,7 @@ import { blankUserForm, type UserForm } from '~/utils/userForm'
 
 type UserView = components['schemas']['UserView']
 type Role = components['schemas']['Role']
-interface UserRow { id: string; status: StatusCell; username: string; name: string; roles: string; company: string }
+interface UserRow { id: string; status: StatusCell; username: string; name: string; roles: string; company: string; active: boolean }
 
 const users = useUsers()
 const { push } = useToast()
@@ -21,6 +21,16 @@ const companyOptions = computed(() => data.value?.companyList ?? [])
 // 이름으로 환원한다(매핑 실패 시 원본 값으로 폴백).
 const roleName = computed(() => new Map(roleOptions.value.map(r => [r.id, r.name])))
 const companyName = computed(() => new Map(companyOptions.value.map(c => [c.id, c.name])))
+// 편집 프리필용: id로 원본 UserView 조회.
+const userById = computed(() => new Map((data.value?.list ?? []).map(u => [u.id, u])))
+
+// UserView.roles가 역할 id든 이름이든 체크박스가 인식하는 role id 집합으로 환원.
+// 알 수 없는 값은 버려 존재하는 역할만 미리 체크되게 한다.
+const roleIdByName = computed(() => new Map(roleOptions.value.map(r => [r.name, r.id])))
+function resolveRoleIds(raw: string[]): string[] {
+  const ids = new Set(roleOptions.value.map(r => r.id))
+  return raw.map(v => (ids.has(v) ? v : roleIdByName.value.get(v) ?? '')).filter(v => ids.has(v))
+}
 
 const search = ref('')
 const rows = computed<UserRow[]>(() => {
@@ -31,6 +41,7 @@ const rows = computed<UserRow[]>(() => {
     name: u.name,
     roles: (u.roles ?? []).map(r => roleName.value.get(r) ?? r).join(', ') || '—',
     company: u.companyId ? (companyName.value.get(u.companyId) ?? u.companyId) : '—',
+    active: u.active,
   }))
   const q = search.value.trim().toLowerCase()
   return q ? list.filter(r => [r.username, r.name, r.roles, r.company].some(x => String(x).toLowerCase().includes(q))) : list
@@ -46,9 +57,31 @@ const columns: Column[] = [
 ]
 
 const drawerOpen = ref(false)
+const editingId = ref<string | null>(null)
 const form = ref<UserForm>(blankUserForm())
+const isEdit = computed(() => editingId.value !== null)
+const drawerTitle = computed(() => (isEdit.value ? '사용자 수정' : '사용자 등록'))
+
 function openCreate() {
+  editingId.value = null
   form.value = blankUserForm()
+  drawerOpen.value = true
+}
+function openEdit(row: UserRow) {
+  const u = userById.value.get(row.id)
+  if (!u) return
+  editingId.value = row.id
+  // username은 변경 불가라 표시만; password는 비워 두고 입력 시에만 재설정.
+  form.value = {
+    username: u.username,
+    password: '',
+    name: u.name,
+    email: u.email ?? '',
+    mobile: u.mobile ?? '',
+    memo: u.memo ?? '',
+    companyId: u.companyId ?? '',
+    roleIds: resolveRoleIds(u.roles ?? []),
+  }
   drawerOpen.value = true
 }
 function toggleRole(id: string) {
@@ -57,13 +90,24 @@ function toggleRole(id: string) {
   else form.value.roleIds.splice(i, 1)
 }
 async function save() {
+  const editing = editingId.value
   try {
-    await users.create(form.value)
+    if (editing) await users.update(editing, form.value)
+    else await users.create(form.value)
     drawerOpen.value = false
     await refresh()
-    push('등록되었습니다.', 'success')
+    push(editing ? '수정되었습니다.' : '등록되었습니다.', 'success')
   } catch (e: any) {
     push(e?.message ?? '저장에 실패했습니다.', 'error')
+  }
+}
+async function toggleActive(row: UserRow) {
+  try {
+    await users.setActive(row.id, !row.active)
+    await refresh()
+    push(row.active ? '정지되었습니다.' : '활성화되었습니다.', 'success')
+  } catch (e: any) {
+    push(e?.message ?? '변경에 실패했습니다.', 'error')
   }
 }
 </script>
@@ -72,18 +116,22 @@ async function save() {
   <section class="panel">
     <WPageHeader title="사용자" desc="시스템 사용자 관리" add-label="+ 사용자 등록"
       v-model:search="search" @add="openCreate" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
-      <template #actions>
-        <span class="muted">—</span>
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="150">
+      <template #actions="{ row }">
+        <button class="act act--ghost" @click="openEdit(row as UserRow)">편집</button>
+        <button class="act" :class="(row as UserRow).active ? 'act--danger' : 'act--primary'"
+          @click="toggleActive(row as UserRow)">{{ (row as UserRow).active ? '정지' : '활성' }}</button>
       </template>
     </WDataTable>
     <WEmptyState v-else title="사용자가 없습니다"
       :message="pending ? '불러오는 중…' : '아래에서 새 사용자를 등록하세요.'"
       cta-label="+ 사용자 등록" @cta="openCreate" />
 
-    <WDrawer v-model:open="drawerOpen" title="사용자 등록" description="사용자 정보를 입력한 뒤 저장하세요.">
-      <label class="fld"><span>아이디 <span class="req">*</span></span><input v-model="form.username" placeholder="admin" /></label>
-      <label class="fld"><span>비밀번호 <span class="req">*</span></span><input v-model="form.password" type="password" /></label>
+    <WDrawer v-model:open="drawerOpen" :title="drawerTitle" description="사용자 정보를 입력한 뒤 저장하세요.">
+      <label class="fld"><span>아이디 <span v-if="!isEdit" class="req">*</span></span>
+        <input v-model="form.username" placeholder="admin" :disabled="isEdit" /></label>
+      <label class="fld"><span>{{ isEdit ? '새 비밀번호' : '비밀번호' }} <span v-if="!isEdit" class="req">*</span></span>
+        <input v-model="form.password" type="password" :placeholder="isEdit ? '변경 시에만 입력' : ''" /></label>
       <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" /></label>
       <label class="fld"><span>이메일</span><input v-model="form.email" type="email" placeholder="user@example.com" /></label>
       <label class="fld"><span>휴대폰</span><input v-model="form.mobile" /></label>
