@@ -27,3 +27,7 @@ logs
 # Generated types
 shared/types/api.d.ts
 .superpowers
+
+# Test & AI-workflow artifacts
+.playwright-mcp/
+docs/superpowers/
