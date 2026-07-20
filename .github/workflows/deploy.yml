@@ -1,0 +1,37 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: target environment
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      tag:
+        description: image tag to deploy (e.g. v1.2.3)
+        required: true
+
+concurrency:
+  group: deploy-web-${{ inputs.env }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, wrpa-dev]
+    timeout-minutes: 15
+    env:
+      ENVN: ${{ inputs.env }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Deploy web (flock-serialized)
+        run: |
+          set -euo pipefail
+          echo "::notice::deploy request — env=${ENVN} tag=${TAG} (web)"
+          test -x /opt/wrpa/deploy/compose/deploy.sh \
+            || { echo "::error::/opt/wrpa/deploy/compose/deploy.sh 없음 — master-v2 deploy를 먼저 1회 실행하거나 초기 셋업(Phase 5) 완료 필요"; exit 1; }
+          # shellcheck disable=SC2016  # $1/$2 are the inner bash's positional params (passed via _ "$ENVN" "$TAG"), not outer-shell vars
+          flock /opt/wrpa/deploy/.deploy.lock bash -euo pipefail -c '
+            /opt/wrpa/deploy/compose/deploy.sh "$1" web "$2" WEB_TAG /
+          ' _ "$ENVN" "$TAG"

@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4        # package.json 의 packageManager(pnpm@10.14.0) 사용
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - name: unit tests
+        run: |
+          echo "::group::vitest run"
+          pnpm exec vitest run
+          echo "::endgroup::"
+      - run: pnpm build

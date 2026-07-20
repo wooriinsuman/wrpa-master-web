@@ -1,0 +1,44 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-web-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    runs-on: [self-hosted, wrpa-dev]
+    timeout-minutes: 30
+    env:
+      REGISTRY: ${{ vars.REGISTRY }}
+      IMAGE: wrpa-master-web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & push
+        run: |
+          set -euo pipefail
+          : "${REGISTRY:?set repo/org variable REGISTRY (e.g. 10.100.3.220:5000)}"
+          REF="${REGISTRY}/${IMAGE}"
+          SHA="$(git rev-parse --short HEAD)"
+          echo "::group::docker build ${REF}:${GITHUB_REF_NAME}"
+          docker build -t "${REF}:${GITHUB_REF_NAME}" -t "${REF}:${SHA}" .
+          echo "::endgroup::"
+          echo "::group::docker push"
+          docker push "${REF}:${GITHUB_REF_NAME}"
+          docker push "${REF}:${SHA}"
+          echo "::endgroup::"
+          DIGEST="$(docker inspect --format '{{index .RepoDigests 0}}' "${REF}:${GITHUB_REF_NAME}" 2>/dev/null || echo n/a)"
+          echo "::notice::pushed ${REF}:${GITHUB_REF_NAME} (${DIGEST})"
+          {
+            echo "### Release ${GITHUB_REF_NAME} — ${IMAGE}"
+            echo ""
+            echo "| 항목 | 값 |"
+            echo "|---|---|"
+            echo "| 태그 | ${GITHUB_REF_NAME} |"
+            echo "| 이미지 | ${REF}:${GITHUB_REF_NAME} |"
+            echo "| 다이제스트 | ${DIGEST} |"
+            echo "| 커밋 | ${SHA} |"
+          } >> "$GITHUB_STEP_SUMMARY"
