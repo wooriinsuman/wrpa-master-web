@@ -19,7 +19,7 @@ interface WorkerRow {
   host: string // 드로어 읽기전용 표시용(호스트명 단독)
   hostIp: string // 테이블 표기용 "호스트/IP" 합본
   hid: StatusCell
-  lastSeen: StatusCell
+  lastSeen: string // 상대시간 텍스트. 색(생사)은 status 컬럼이 전담 — 여긴 근거 데이터만.
   status: StatusCell
   companyIds: string[]
   insurerIds: string[]
@@ -77,7 +77,7 @@ const rows = computed<WorkerRow[]>(() => {
       // 호스트명/IP를 한 칸에. 하나만 있으면 그것만, 둘 다 없으면 '—'.
       hostIp: [w.host, w.ip].filter(Boolean).join('/') || '—',
       hid: hidCell(w.hidHealthCount, w.hidTotalCount),
-      lastSeen: { label: formatSince(lastSec, nowSec.value), kind: live.kind },
+      lastSeen: formatSince(lastSec, nowSec.value),
       // 상태는 워커가 보고한 state 대신 last-seen 파생 생사(온라인/지연/오프라인).
       // 하드 크래시 시 보고 state는 최대 5분 얼어붙어 신뢰할 수 없기 때문.
       status: live,
@@ -98,7 +98,7 @@ const columns: Column[] = [
   { key: 'insurers', label: '보험사', kind: 'chips', sortable: false, weight: 2.4 },
   { key: 'hostIp', label: '호스트/IP', kind: 'muted' },
   { key: 'hid', label: 'HID', kind: 'status' },
-  { key: 'lastSeen', label: '최근 접속', kind: 'status', sortable: false },
+  { key: 'lastSeen', label: '최근 접속', kind: 'text', sortable: false },
   { key: 'status', label: '상태', kind: 'status' },
 ]
 
