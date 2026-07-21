@@ -32,7 +32,10 @@ export function usePackages() {
       form.append('file', file)
       return $fetch('/api/packages-upload', { method: 'POST', body: form })
     },
+    // Download is a machine-plane pull under /api/worker/*, which the edge (Caddy)
+    // routes straight to master (binary, no web-proxy mangling). Same origin, so the
+    // browser href reaches it directly.
     downloadUrl: (p: PackageMeta) =>
-      `/api/packages/${encodeURIComponent(p.name)}/${encodeURIComponent(p.version)}/download`,
+      `/api/worker/packages/${encodeURIComponent(p.name)}/${encodeURIComponent(p.version)}/download`,
   }
 }

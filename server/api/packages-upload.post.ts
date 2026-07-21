@@ -4,7 +4,7 @@ import { toApiErrorResponse } from '../utils/proxy-error'
 // Dedicated upload route. The catch-all proxy parses bodies with readBody(),
 // which corrupts binary multipart, so package uploads are streamed here instead:
 // we re-assemble the multipart form and POST it to the backend's gated
-// /api/packages endpoint, injecting the uploader token.
+// /api/worker/packages endpoint (machine plane), injecting the uploader token.
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const token = getCookie(event, 'access_token')
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   form.append('file', new Blob([new Uint8Array(file.data)], { type: file.type || 'application/gzip' }), file.filename || `${name}.tar.gz`)
 
   try {
-    return await $fetch(`${config.rpaApiUrl}/api/packages`, {
+    return await $fetch(`${config.rpaApiUrl}/api/worker/packages`, {
       method: 'POST',
       query: { name, version },
       headers: buildProxyHeaders(token, config.uploadToken),
