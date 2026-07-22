@@ -136,12 +136,14 @@ async function save() {
   if (!row) return
   try {
     await workers.setAssignments(row.id, { companyIds: companyIds.value, insurerIds: insurerIds.value })
-    crudOpen.value = false
-    await refresh()
-    push('배정이 저장되었습니다.', 'success')
   } catch (e: any) {
     push(extractApiError(e, '저장에 실패했습니다.'), 'error')
+    return
   }
+  // 배정 저장 성공 — 목록 갱신 실패는 저장 결과와 무관하므로 삼킨다(saveCreate와 동일).
+  crudOpen.value = false
+  push('배정이 저장되었습니다.', 'success')
+  try { await refresh() } catch { /* 목록 갱신 실패는 무시(다음 상호작용에 갱신됨) */ }
 }
 
 // --- 삭제 (확인 게이트) ---
