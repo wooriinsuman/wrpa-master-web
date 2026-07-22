@@ -114,8 +114,6 @@ const crudOpen = ref(false)
 const editing = ref<WorkerRow | null>(null)
 const companyIds = ref<string[]>([])
 const insurerIds = ref<string[]>([])
-let origCompanies: string[] = []
-let origInsurers: string[] = []
 
 function toggleCompany(id: string) {
   companyIds.value = companyIds.value.includes(id)
@@ -130,31 +128,19 @@ function openEdit(row: WorkerRow) {
   editing.value = row
   companyIds.value = [...row.companyIds]
   insurerIds.value = [...row.insurerIds]
-  origCompanies = [...row.companyIds]
-  origInsurers = [...row.insurerIds]
   crudOpen.value = true
-}
-
-// 스냅샷 대비 추가/삭제분만 assign/remove 호출.
-async function syncSet(id: string, orig: string[], next: string[],
-  add: (id: string, x: string) => Promise<unknown>, del: (id: string, x: string) => Promise<unknown>) {
-  const added = next.filter(x => !orig.includes(x))
-  const removed = orig.filter(x => !next.includes(x))
-  for (const x of added) await add(id, x)
-  for (const x of removed) await del(id, x)
 }
 
 async function save() {
   const row = editing.value
   if (!row) return
   try {
-    await syncSet(row.id, origCompanies, companyIds.value, workers.assignCompany, workers.removeCompany)
-    await syncSet(row.id, origInsurers, insurerIds.value, workers.assignInsurer, workers.removeInsurer)
+    await workers.setAssignments(row.id, { companyIds: companyIds.value, insurerIds: insurerIds.value })
     crudOpen.value = false
     await refresh()
     push('배정이 저장되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.message ?? '저장에 실패했습니다.', 'error')
+    push(extractApiError(e, '저장에 실패했습니다.'), 'error')
   }
 }
 
@@ -231,29 +217,21 @@ async function saveCreate() {
   }
   creating.value = true
   const hadCompanies = createCompanyIds.value.length > 0
-  // 1) 워커 생성 (키는 이 응답에서만 1회 노출 — 실패 시 즉시 중단)
+  // 1) 워커 생성 + 배정을 단일 원자 호출로 (키는 이 응답에서만 1회 노출 — 실패 시 즉시 중단)
   let created: { id: string, apiKey: string }
   try {
-    created = await workers.create(body)
+    created = await workers.create({ ...body, companyIds: createCompanyIds.value, insurerIds: createInsurerIds.value })
   } catch (e) {
     push(extractApiError(e, '워커 생성에 실패했습니다.'), 'error')
     creating.value = false
     return
   }
-  // 2) 키를 먼저 노출(배정 실패와 무관하게 키를 잃지 않도록)
   createOpen.value = false
   keyForCreate.value = true
-  keyCreateNoCompany.value = !hadCompanies // 회사 미선택 시에만 배정 안내
+  keyCreateNoCompany.value = !hadCompanies
   revealKey(created.apiKey)
-  // 3) 선택한 회사·보험사 배정 (생성된 id로 assign)
-  try {
-    for (const cid of createCompanyIds.value) await workers.assignCompany(created.id, cid)
-    for (const iid of createInsurerIds.value) await workers.assignInsurer(created.id, iid)
-    push('워커가 생성되었습니다.', 'success')
-  } catch (e) {
-    push(extractApiError(e, '워커는 생성됐지만 배정 중 오류가 발생했습니다. 목록의 「배정」에서 다시 시도하세요.'), 'error')
-  }
-  try { await refresh() } catch { /* 목록 갱신 실패는 무시(다음 상호작용에 갱신됨) */ }
+  push('워커가 생성되었습니다.', 'success')
+  try { await refresh() } catch { /* 목록 갱신 실패는 무시 */ }
   creating.value = false
 }
 

@@ -5,21 +5,14 @@ import { flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import WorkersPage from './index.vue'
 
-const { listMock, rotateMock, assignCompanyMock, createMock, pauseMock, resumeMock } = vi.hoisted(() => ({
-  listMock: vi.fn(), rotateMock: vi.fn(), assignCompanyMock: vi.fn(), createMock: vi.fn(),
+const { listMock, rotateMock, setAssignmentsMock, createMock, pauseMock, resumeMock } = vi.hoisted(() => ({
+  listMock: vi.fn(), rotateMock: vi.fn(), setAssignmentsMock: vi.fn(), createMock: vi.fn(),
   pauseMock: vi.fn(), resumeMock: vi.fn(),
 }))
 mockNuxtImport('useWorkers', () => () => ({
-  list: listMock,
-  create: createMock,
-  remove: vi.fn(),
-  rotateKey: rotateMock,
-  pause: pauseMock,
-  resume: resumeMock,
-  assignCompany: assignCompanyMock,
-  removeCompany: vi.fn(),
-  assignInsurer: vi.fn(),
-  removeInsurer: vi.fn(),
+  list: listMock, create: createMock, remove: vi.fn(),
+  rotateKey: rotateMock, pause: pauseMock, resume: resumeMock,
+  setAssignments: setAssignmentsMock,
 }))
 mockNuxtImport('useClients', () => () => ({ list: () => Promise.resolve([{ id: 'c1', name: '우리인슈맨라이프' }]) }))
 mockNuxtImport('useInsurers', () => () => ({ list: () => Promise.resolve([{ id: 'i1', code: 'samsung_property', name: '삼성화재' }]) }))
@@ -75,14 +68,13 @@ describe('workers page', () => {
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: false })
+    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: false, companyIds: [], insurerIds: [] })
     expect(document.body.textContent).toContain('wk_CREATED999')
   })
 
   it('assigns a selected company at creation time', async () => {
     listMock.mockResolvedValue(oneWorker())
     createMock.mockResolvedValue({ id: 'wk9', apiKey: 'wk_CREATED999' })
-    assignCompanyMock.mockResolvedValue(undefined)
     const el = await mountSuspended(WorkersPage)
     await el.findAll('button').find(b => b.text() === '+ 워커 등록')!.trigger('click')
     await flushPromises()
@@ -99,8 +91,7 @@ describe('workers page', () => {
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(createMock).toHaveBeenCalled()
-    expect(assignCompanyMock).toHaveBeenCalledWith('wk9', 'c1')
+    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: false, companyIds: ['c1'], insurerIds: [] })
   })
 
   it('creates a paused worker when the checkbox is checked', async () => {
@@ -120,7 +111,7 @@ describe('workers page', () => {
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: true })
+    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: true, companyIds: [], insurerIds: [] })
   })
 
   it('does not call create when the name is empty', async () => {
@@ -148,7 +139,7 @@ describe('workers page', () => {
 
   it('assigns a company via the 배정 drawer chips', async () => {
     listMock.mockResolvedValue(oneWorker())
-    assignCompanyMock.mockResolvedValue(undefined)
+    setAssignmentsMock.mockResolvedValue(undefined)
     const el = await mountSuspended(WorkersPage)
     await el.findAll('button').find(b => b.text() === '배정')!.trigger('click')
     await flushPromises()
@@ -159,7 +150,7 @@ describe('workers page', () => {
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(assignCompanyMock).toHaveBeenCalledWith('wk1', 'c1')
+    expect(setAssignmentsMock).toHaveBeenCalledWith('wk1', { companyIds: ['c1'], insurerIds: [] })
   })
 
   it('pauses an active worker from the row action', async () => {

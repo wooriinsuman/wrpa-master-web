@@ -504,6 +504,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workers/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["SetWorkerAssignments"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/worker/register": {
         parameters: {
             query?: never;
@@ -1186,12 +1202,18 @@ export interface components {
             shared?: boolean;
             /** @description 생성 시 작업 배정 중단 상태로 만들지 여부. 기본 false */
             paused?: boolean;
+            companyIds?: string[];
+            insurerIds?: string[];
         };
         UpdateWorkerRequest: {
             name: string;
             type: string;
             tags?: string[];
             shared?: boolean;
+        };
+        SetWorkerAssignmentsRequest: {
+            companyIds: string[];
+            insurerIds: string[];
         };
         WorkerCreateResponse: {
             id: string;
@@ -2560,6 +2582,28 @@ export interface operations {
             204: components["responses"]["NoContent"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    SetWorkerAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetWorkerAssignmentsRequest"];
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     RegisterWorker: {
