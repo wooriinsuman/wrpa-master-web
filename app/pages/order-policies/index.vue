@@ -44,6 +44,15 @@ const { data, pending, refresh } = await useAsyncData(
 )
 const list = computed<View[]>(() => data.value ?? [])
 
+// 조회 버튼 로딩: refresh()가 끝날 때까지 스피너 + 비활성화.
+const refreshing = ref(false)
+async function reload() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try { await refresh() }
+  finally { refreshing.value = false }
+}
+
 function companyName(id: string) {
   return companies.value.find(c => c.id === id)?.name ?? id
 }
@@ -241,7 +250,7 @@ async function removePolicy(p: View) {
           <option value="__default__">회사 기본</option>
           <option v-for="o in insurerFilterOptions" :key="o.code" :value="o.code">{{ o.name }}</option>
         </select>
-        <WButton variant="ghost" aria-label="다시 조회" @click="refresh()">
+        <WButton variant="ghost" :loading="refreshing" aria-label="다시 조회" @click="reload">
           <template #leading><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.36" /><path d="M21 3v6h-6" /></svg></template>
           조회
         </WButton>

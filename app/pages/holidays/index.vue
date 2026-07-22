@@ -21,6 +21,15 @@ const { data, pending, refresh } = await useAsyncData(
 )
 const list = computed<View[]>(() => data.value ?? [])
 
+// 조회 버튼 로딩: refresh()가 끝날 때까지 스피너 + 비활성화.
+const refreshing = ref(false)
+async function reload() {
+  if (refreshing.value) return
+  refreshing.value = true
+  try { await refresh() }
+  finally { refreshing.value = false }
+}
+
 const columns: Column[] = [
   { key: 'day', label: '날짜', kind: 'mono' },
   { key: 'name', label: '이름', kind: 'text' },
@@ -120,7 +129,7 @@ async function syncNow() {
         <select v-model.number="year" class="hd-year">
           <option v-for="y in years" :key="y" :value="y">{{ y }}년</option>
         </select>
-        <WButton variant="ghost" aria-label="다시 조회" @click="refresh()">
+        <WButton variant="ghost" :loading="refreshing" aria-label="다시 조회" @click="reload">
           <template #leading><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.36" /><path d="M21 3v6h-6" /></svg></template>
           조회
         </WButton>

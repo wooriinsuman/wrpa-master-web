@@ -35,6 +35,19 @@ describe('WButton', () => {
     expect(el.find('.wbtn__icon .trail').exists()).toBe(true)
   })
 
+  it('when loading: disables, marks aria-busy, and keeps the leading icon (shimmer overlay)', async () => {
+    const el = await mountSuspended(WButton, {
+      props: { loading: true },
+      slots: { leading: () => h('svg', { class: 'lead' }), default: () => '조회' },
+    })
+    const btn = el.find('button')
+    expect(btn.attributes('disabled')).toBeDefined()
+    expect(btn.attributes('aria-busy')).toBe('true')
+    expect(btn.classes()).toContain('wbtn--loading')
+    // Icon stays in place during loading (shimmer sweeps over it, not a spinner swap).
+    expect(el.find('.wbtn__icon .lead').exists()).toBe(true)
+  })
+
   it('forwards native click through inheritAttrs', async () => {
     let n = 0
     const el = await mountSuspended(WButton, { attrs: { onClick: () => { n++ } }, slots: { default: () => 'x' } })
