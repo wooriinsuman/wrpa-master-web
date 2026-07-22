@@ -120,6 +120,10 @@ async function syncNow() {
         <select v-model.number="year" class="hd-year">
           <option v-for="y in years" :key="y" :value="y">{{ y }}년</option>
         </select>
+        <WButton variant="ghost" aria-label="다시 조회" @click="refresh()">
+          <template #leading><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.36" /><path d="M21 3v6h-6" /></svg></template>
+          조회
+        </WButton>
         <button class="act act--ghost" :disabled="syncing" @click="syncNow">{{ syncing ? '동기화 중…' : '동기화' }}</button>
         <button class="act act--primary" @click="openAdd">+ 수동 추가</button>
       </div>

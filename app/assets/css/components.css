@@ -133,6 +133,9 @@ input[type="checkbox"] {
 }
 .act--danger:hover { border-color: var(--fail); }
 .act:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+/* Size modifiers (WButton size prop; md is the .act default above). */
+.act--sm { padding: 5px 11px; font-size: 12px; }
+.act--lg { padding: 11px 20px; font-size: 14px; }
 
 /* compact action buttons inside data-table rows */
 .dt-actions .act { padding: 5px 11px; font-size: 12px; }

@@ -42,7 +42,7 @@ function blank(): InsurerForm {
   return { code: '', name: '', type: 'PROPERTY', url: '', active: true }
 }
 
-const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove } = await useCrudPage<View, InsurerForm, InsurerRow>({
+const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove, refresh } = await useCrudPage<View, InsurerForm, InsurerRow>({
   key: 'insurers',
   resource: useInsurers(),
   blank,
@@ -76,6 +76,7 @@ const visibleRows = computed(() =>
     v-model:search="search"
     v-model:drawer-open="drawerOpen"
     @add="openCreate"
+    @refresh="refresh"
     @edit="openEdit"
     @save="save"
     @remove="remove"

@@ -196,7 +196,7 @@ async function doUpload() {
 <template>
   <section class="panel">
     <WPageHeader title="패키지" desc="배포 바이너리·에셋 (자동 업데이트 채널) · 버전 chip을 클릭하면 배포됩니다" add-label="+ 패키지 업로드"
-      v-model:search="search" @add="openUpload" />
+      v-model:search="search" @add="openUpload" @refresh="refreshAll" />
 
     <WPackageAccordion v-if="groups.length" :groups="groups" :download-url="packages.downloadUrl"
       @activate="onActivate" @deactivate="onDeactivate" @remove="doDelete" @view="onView" />

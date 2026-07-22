@@ -1,8 +1,15 @@
 <!-- app/components/WPageHeader.vue -->
 <script setup lang="ts">
+import { computed, useAttrs } from 'vue'
 // addLabel omitted → no add button (e.g. workers self-register, no manual create).
 defineProps<{ title: string; desc?: string; search?: string; addLabel?: string }>()
 defineEmits<{ add: []; 'update:search': [v: string] }>()
+// The refresh (조회) button appears only when the parent wires an @refresh
+// handler — it re-queries the list from the server so users don't have to
+// reload the whole page. Detected via $attrs so no extra prop is needed.
+const attrs = useAttrs()
+const canRefresh = computed(() => typeof attrs.onRefresh === 'function')
+function onRefresh() { (attrs.onRefresh as (() => void))() }
 </script>
 <template>
   <div class="ph">
@@ -14,6 +21,12 @@ defineEmits<{ add: []; 'update:search': [v: string] }>()
       <slot name="header-actions" />
       <input class="ph-search" :value="search" placeholder="검색…"
         @input="$emit('update:search', ($event.target as HTMLInputElement).value)" />
+      <WButton v-if="canRefresh" variant="ghost" title="목록 다시 조회" aria-label="다시 조회" @click="onRefresh">
+        <template #leading>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.36" /><path d="M21 3v6h-6" /></svg>
+        </template>
+        조회
+      </WButton>
       <button v-if="addLabel" class="add" @click="$emit('add')">{{ addLabel }}</button>
     </div>
   </div>

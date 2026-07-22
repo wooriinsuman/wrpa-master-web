@@ -1,6 +1,6 @@
 <!-- app/components/WCrudPage.vue -->
 <script setup lang="ts" generic="Row extends CrudRow">
-import { ref } from 'vue'
+import { ref, computed, useAttrs } from 'vue'
 import type { CrudRow } from '~/utils/crud'
 import type { Column } from '~/components/WDataTable.vue'
 
@@ -30,6 +30,13 @@ const emit = defineEmits<{
   remove: [row: Row]
 }>()
 
+// Forward the page's @refresh straight through to WPageHeader (which shows the
+// 조회 button when an onRefresh handler is present). `refresh` is intentionally
+// NOT a declared emit — declaring it would strip onRefresh from $attrs and the
+// header could never detect it.
+const attrs = useAttrs()
+const onRefresh = computed(() => (typeof attrs.onRefresh === 'function' ? (attrs.onRefresh as () => void) : undefined))
+
 const search = defineModel<string>('search', { default: '' })
 const drawerOpen = defineModel<boolean>('drawerOpen', { default: false })
 const selected = defineModel<string[]>('selected', { default: () => [] })
@@ -46,7 +53,7 @@ function confirmRemove() {
 
 <template>
   <section class="panel">
-    <WPageHeader :title="title" :desc="desc" :add-label="addLabel" v-model:search="search" @add="emit('add')">
+    <WPageHeader :title="title" :desc="desc" :add-label="addLabel" v-model:search="search" @add="emit('add')" v-on="onRefresh ? { refresh: onRefresh } : {}">
       <template #header-actions>
         <slot name="header-actions" />
       </template>

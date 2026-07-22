@@ -148,15 +148,6 @@ const isActive = (itemRoute: string) => {
   background: var(--th);
 }
 
-/* Refined-menu tint (declared before --active so the active row keeps its blue). */
-.nav-item--done {
-  background: rgba(47, 163, 107, 0.09);
-}
-
-.nav-item--done:hover {
-  background: rgba(47, 163, 107, 0.15);
-}
-
 .nav-item--active {
   background: var(--nav-active);
 }
@@ -197,14 +188,6 @@ const isActive = (itemRoute: string) => {
   background: rgba(45, 125, 210, 0.12);
   color: var(--run);
   box-shadow: inset 0 1px 0 rgba(45, 125, 210, 0.2);
-}
-
-/* Green code chip marks a refined menu — declared after --active so it stays
-   green even on the active (current) row. */
-.nav-item--done .nav-code {
-  background: rgba(47, 163, 107, 0.16);
-  color: var(--done);
-  box-shadow: inset 0 1px 0 rgba(47, 163, 107, 0.25);
 }
 
 /* Nav label */

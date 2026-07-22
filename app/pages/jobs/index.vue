@@ -74,7 +74,7 @@ const resultText = computed(() =>
 <template>
   <section class="panel">
     <WPageHeader title="진행 작업" desc="실행 중·완료된 작업" add-label="+ 작업 실행"
-      v-model:search="search" @add="openEnqueue" />
+      v-model:search="search" @add="openEnqueue" @refresh="refresh" />
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openResult(row as WorkRow)">결과</button>

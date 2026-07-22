@@ -31,7 +31,7 @@ function blank(): ClientForm {
   return { name: '', code: '', phone: '', leaderName: '', businessRegistrationNumber: '' }
 }
 
-const { rows, search, pending, drawerOpen, form, openCreate, save, remove } = await useCrudPage<Company, ClientForm, ClientRow>({
+const { rows, search, pending, drawerOpen, form, openCreate, save, remove, refresh } = await useCrudPage<Company, ClientForm, ClientRow>({
   key: 'clients',
   resource: useClients(),
   blank,
@@ -58,6 +58,7 @@ const { rows, search, pending, drawerOpen, form, openCreate, save, remove } = aw
     @add="openCreate"
     @save="save"
     @remove="remove"
+    @refresh="refresh"
   >
     <template #fields>
       <label class="fld"><span>회사명 <span class="req">*</span></span><input v-model="form.name" placeholder="우리인슈맨라이프" /></label>

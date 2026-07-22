@@ -16,6 +16,18 @@ describe('WPageHeader', () => {
     await el.find('input').setValue('삼성')
     expect(el.emitted('update:search')?.[0]).toEqual(['삼성'])
   })
+  it('hides the refresh button when no onRefresh handler is provided', async () => {
+    const el = await mountSuspended(WPageHeader, { props: { title: 'x', addLabel: 'y' } })
+    expect(el.find('[aria-label="다시 조회"]').exists()).toBe(false)
+  })
+  it('shows the refresh button and calls onRefresh on click', async () => {
+    let called = 0
+    const el = await mountSuspended(WPageHeader, { props: { title: 'x' }, attrs: { onRefresh: () => { called++ } } })
+    const btn = el.find('[aria-label="다시 조회"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(called).toBe(1)
+  })
   it('renders the header-actions slot', async () => {
     const el = await mountSuspended(WPageHeader, {
       props: { title: 'x', addLabel: 'y' },

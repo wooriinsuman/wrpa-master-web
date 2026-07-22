@@ -241,6 +241,10 @@ async function removePolicy(p: View) {
           <option value="__default__">회사 기본</option>
           <option v-for="o in insurerFilterOptions" :key="o.code" :value="o.code">{{ o.name }}</option>
         </select>
+        <WButton variant="ghost" aria-label="다시 조회" @click="refresh()">
+          <template #leading><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.36" /><path d="M21 3v6h-6" /></svg></template>
+          조회
+        </WButton>
         <button class="act act--ghost" :disabled="selected.length !== 1" @click="openCopy">선택 복사</button>
         <button class="act act--primary" @click="openCreate">+ 정책 등록</button>
       </div>

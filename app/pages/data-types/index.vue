@@ -32,7 +32,7 @@ const resource = {
   list: () => dataTypes.list().then(vs => vs.map(v => ({ ...v, id: v.code }))),
 }
 
-const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove } =
+const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove, refresh } =
   await useCrudPage<View, DataTypeForm, Row>({
     key: 'data-types',
     resource,
@@ -60,6 +60,7 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     v-model:search="search"
     v-model:drawer-open="drawerOpen"
     @add="openCreate"
+    @refresh="refresh"
     @edit="openEdit"
     @save="save"
     @remove="remove"

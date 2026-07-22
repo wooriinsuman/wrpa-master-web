@@ -28,7 +28,10 @@ export default defineEventHandler(async (event) => {
   form.append('file', new Blob([new Uint8Array(file.data)], { type: file.type || 'application/gzip' }), file.filename || `${name}.tar.gz`)
 
   try {
-    return await $fetch(`${config.rpaApiUrl}/api/worker/packages`, {
+    // Explicit generic: this hits the external backend, not an internal Nuxt
+    // route, and $fetch's route-augmented overloads otherwise blow TS's
+    // recursion budget here ("Excessive stack depth") as the app's type graph grows.
+    return await $fetch<unknown>(`${config.rpaApiUrl}/api/worker/packages`, {
       method: 'POST',
       query: { name, version },
       headers: buildProxyHeaders(token, config.uploadToken),

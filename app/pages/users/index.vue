@@ -115,7 +115,7 @@ async function toggleActive(row: UserRow) {
 <template>
   <section class="panel">
     <WPageHeader title="사용자" desc="시스템 사용자 관리" add-label="+ 사용자 등록"
-      v-model:search="search" @add="openCreate" />
+      v-model:search="search" @add="openCreate" @refresh="refresh" />
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="150">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openEdit(row as UserRow)">편집</button>

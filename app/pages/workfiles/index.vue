@@ -72,7 +72,7 @@ function blank(): WorkFileForm {
   return { insuranceCompanyCode: '', dataType: '', fileType: 'list', insureType: 'all', contentType: '', name: '', note: '', originPath: '' }
 }
 
-const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove } = await useCrudPage<View, WorkFileForm, WorkFileRow>({
+const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove, refresh } = await useCrudPage<View, WorkFileForm, WorkFileRow>({
   key: 'workfiles',
   resource: useWorkFiles(),
   blank,
@@ -99,6 +99,7 @@ const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit
     v-model:search="search"
     v-model:drawer-open="drawerOpen"
     @add="openCreate"
+    @refresh="refresh"
     @edit="openEdit"
     @save="save"
     @remove="remove"

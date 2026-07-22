@@ -96,6 +96,7 @@ async function runUnlock(row: AccountRow) {
     v-model:search="search"
     v-model:drawer-open="drawerOpen"
     @add="openCreate"
+    @refresh="refresh"
     @edit="openEdit"
     @save="save"
     @remove="remove"

@@ -259,7 +259,7 @@ async function copyKey() {
 <template>
   <section class="panel">
     <WPageHeader title="워커" desc="RPA 워커 호스트 · 미리 생성해 키를 발급하고 배정(회사·보험사)을 관리합니다"
-      add-label="+ 워커 등록" v-model:search="search" @add="openCreate" />
+      add-label="+ 워커 등록" v-model:search="search" @add="openCreate" @refresh="refresh" />
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" index-column :actions-width="288">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="togglePause(row as WorkerRow)">{{ (row as WorkerRow).paused ? '재개' : '일시중지' }}</button>

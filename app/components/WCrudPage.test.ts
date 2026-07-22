@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { h } from 'vue'
+import { defineComponent, h } from 'vue'
 import WCrudPage from './WCrudPage.vue'
 
 const base = {
@@ -53,6 +53,24 @@ describe('WCrudPage', () => {
     const add = el.findAll('button').find(b => b.text().includes('거래처 등록'))!
     await add.trigger('click')
     expect(el.emitted('add')).toBeTruthy()
+  })
+
+  // A page's @refresh must survive the WCrudPage → WPageHeader hop and drive the
+  // 조회 button. Regression: a template `:on-refresh` binding arrived kebab-cased
+  // (on-refresh) so the header's camelCase detection never matched.
+  it('shows the 조회 button and forwards @refresh to the page', async () => {
+    let n = 0
+    const Parent = defineComponent({ setup() { return () => h(WCrudPage, { ...base, onRefresh: () => { n++ } }) } })
+    const el = await mountSuspended(Parent)
+    const btn = el.find('[aria-label="다시 조회"]')
+    expect(btn.exists()).toBe(true)
+    await btn.trigger('click')
+    expect(n).toBe(1)
+  })
+
+  it('hides the 조회 button when the page wires no @refresh', async () => {
+    const el = await mountSuspended(WCrudPage, { props: base })
+    expect(el.find('[aria-label="다시 조회"]').exists()).toBe(false)
   })
 
   it('forwards the header-actions slot into WPageHeader', async () => {

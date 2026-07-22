@@ -254,6 +254,7 @@ async function submitCopy() {
     @edit="openEdit"
     @save="save"
     @remove="remove"
+    @refresh="refresh"
   >
     <template #header-actions>
       <button class="act act--ghost" @click="confirmRegenOpen = true">다음날 재생성</button>
