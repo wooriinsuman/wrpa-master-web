@@ -8,6 +8,6 @@ export default defineEventHandler(async (event) => {
     }).catch(() => {})
   }
   deleteCookie(event, 'access_token')
-  deleteCookie(event, 'refresh_token', { path: '/api/auth' })
+  deleteCookie(event, 'refresh_token', { path: '/api' })
   return { ok: true }
 })

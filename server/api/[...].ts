@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
         })
         setCookie(event, 'refresh_token', rotated.refreshToken, {
           httpOnly: true, secure: !import.meta.dev, sameSite: 'lax',
-          path: '/api/auth', maxAge: 7 * 24 * 60 * 60,
+          path: '/api', maxAge: 7 * 24 * 60 * 60,
         })
         try {
           return await $fetch(`${config.rpaApiUrl}${path}`, options(rotated.accessToken))
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     }
     // No refresh cookie or refresh failed → clear cookies, relay 401.
     deleteCookie(event, 'access_token')
-    deleteCookie(event, 'refresh_token', { path: '/api/auth' })
+    deleteCookie(event, 'refresh_token', { path: '/api' })
     setResponseStatus(event, first.status)
     return first.body
   }
