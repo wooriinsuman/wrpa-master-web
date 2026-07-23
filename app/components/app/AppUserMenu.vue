@@ -79,6 +79,6 @@ async function onLogout() {
 }
 
 .um-item--danger {
-  color: #c0392b;
+  color: var(--fail);
 }
 </style>
