@@ -37,10 +37,9 @@ const isActive = (itemRoute: string) => {
       </div>
     </nav>
 
-    <!-- Operator footer -->
+    <!-- Account footer -->
     <div class="operator">
-      <div class="operator-role">운영자</div>
-      <div class="operator-name">김희준 · IT사업부</div>
+      <AppUserMenu />
     </div>
   </aside>
 </template>
@@ -202,25 +201,9 @@ const isActive = (itemRoute: string) => {
   color: var(--ink);
 }
 
-/* Operator footer */
+/* Account footer wrapper (bottom-pinned; AppUserMenu supplies its own box styling) */
 .operator {
   margin-top: auto;
-  padding: 10px 9px;
-  border-radius: 10px;
-  background: var(--th);
-  border: 1px solid var(--line);
-}
-
-.operator-role {
-  font-size: 11px;
-  color: var(--ink-2);
-  margin-bottom: 3px;
-}
-
-.operator-name {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink);
 }
 
 /* 880px responsive: collapse to bottom tab bar */
