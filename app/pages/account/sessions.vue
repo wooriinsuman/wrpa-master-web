@@ -1,0 +1,118 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import type { components } from '#shared/types/api'
+import type { Column } from '~/components/WDataTable.vue'
+import type { StatusCell } from '~/utils/status'
+import { extractApiError } from '~/utils/apiError'
+
+type SessionView = components['schemas']['SessionView']
+interface SessionRow {
+  familyId: string
+  device: string
+  ip: string
+  createdAt: string
+  lastUsedAt: string
+  status: StatusCell
+  _src: SessionView
+}
+
+const sessions = useSessions()
+const { push } = useToast()
+
+const { data, pending, refresh } = await useAsyncData('my-sessions', () => sessions.list())
+const list = computed<SessionView[]>(() => data.value ?? [])
+
+function fmt(ms: number) { return new Date(ms).toLocaleString('ko-KR') }
+
+const columns: Column[] = [
+  { key: 'device', label: '기기', kind: 'text' },
+  { key: 'ip', label: 'IP', kind: 'mono' },
+  { key: 'createdAt', label: '최초 로그인', kind: 'mono' },
+  { key: 'lastUsedAt', label: '최근 사용', kind: 'mono' },
+  { key: 'status', label: '상태', kind: 'status' },
+]
+
+const rows = computed<SessionRow[]>(() => list.value.map(s => ({
+  familyId: s.familyId,
+  device: s.userAgent || '알 수 없는 기기',
+  ip: s.clientIp || '-',
+  createdAt: fmt(s.createdAt),
+  lastUsedAt: fmt(s.lastUsedAt),
+  status: s.current
+    ? { label: '현재 기기', kind: 'run' } as StatusCell
+    : s.active
+      ? { label: '활성', kind: 'done' } as StatusCell
+      : { label: '만료', kind: 'idle' } as StatusCell,
+  _src: s,
+})))
+
+// 로그아웃(개별) — 다른 목록 메뉴 관례대로 공용 WConfirm으로 게이트.
+const confirmOpen = ref(false)
+const pendingRevoke = ref<SessionView | null>(null)
+const confirmMessage = computed(() =>
+  pendingRevoke.value ? `${pendingRevoke.value.userAgent || '알 수 없는 기기'} — 이 기기를 로그아웃 처리합니다.` : '',
+)
+function askRevoke(s: SessionView) { pendingRevoke.value = s; confirmOpen.value = true }
+async function doRevoke() {
+  const s = pendingRevoke.value
+  pendingRevoke.value = null
+  if (!s) return
+  try {
+    await sessions.revoke(s.familyId)
+    await refresh()
+    push('로그아웃되었습니다.', 'success')
+  } catch (e: any) {
+    push(extractApiError(e, '로그아웃에 실패했습니다.'), 'error')
+  }
+}
+
+// 다른 기기 모두 로그아웃 — 확인 없이 즉시 실행할 만큼 되돌리기 쉬운 작업은 아니므로 동일하게 WConfirm으로 게이트.
+const confirmOthersOpen = ref(false)
+async function doRevokeOthers() {
+  try {
+    await sessions.revokeOthers()
+    await refresh()
+    push('다른 기기가 모두 로그아웃되었습니다.', 'success')
+  } catch (e: any) {
+    push(extractApiError(e, '로그아웃에 실패했습니다.'), 'error')
+  }
+}
+</script>
+
+<template>
+  <section class="panel">
+    <WPageHeader title="내 세션" desc="현재 로그인된 기기 목록을 관리합니다" @refresh="refresh">
+      <template #header-actions>
+        <WButton variant="danger" @click="confirmOthersOpen = true">다른 기기 모두 로그아웃</WButton>
+      </template>
+    </WPageHeader>
+
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="110">
+      <template #actions="{ row }">
+        <button
+          v-if="!(row as SessionRow)._src.current && (row as SessionRow)._src.active"
+          class="act act--danger"
+          @click="askRevoke((row as SessionRow)._src)"
+        >로그아웃</button>
+      </template>
+    </WDataTable>
+    <WEmptyState
+      v-else
+      title="세션이 없습니다"
+      :message="pending ? '불러오는 중…' : '로그인된 기기가 없습니다.'"
+    />
+
+    <WConfirm v-model:open="confirmOpen" title="세션 로그아웃" :message="confirmMessage" confirm-label="로그아웃" @confirm="doRevoke" />
+    <WConfirm
+      v-model:open="confirmOthersOpen"
+      title="다른 기기 모두 로그아웃"
+      message="현재 기기를 제외한 모든 세션이 로그아웃됩니다."
+      confirm-label="모두 로그아웃"
+      @confirm="doRevokeOthers"
+    />
+  </section>
+</template>
+
+<style scoped>
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
+</style>
