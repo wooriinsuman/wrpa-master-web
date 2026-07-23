@@ -11,6 +11,13 @@ interface UserRow { id: string; status: StatusCell; username: string; name: stri
 
 const users = useUsers()
 const { push } = useToast()
+const authStore = useAuthStore()
+// "세션" 관리 액션은 관리자/시스템에게만 노출한다(백엔드도 동일하게 강제하지만
+// UI에서 먼저 숨겨 혼란을 줄인다).
+const canManageSessions = computed(() => {
+  const roles = authStore.user?.roles ?? []
+  return roles.includes('ROLE_ADMIN') || roles.includes('ROLE_SYSTEM')
+})
 const { data, refresh, pending } = await useAsyncData('users', async () => {
   const [list, roleList, companyList] = await Promise.all([users.list(), users.roles(), useClients().list()])
   return { list, roleList, companyList }
@@ -101,6 +108,14 @@ async function save() {
     push(e?.message ?? '저장에 실패했습니다.', 'error')
   }
 }
+const sessionDrawerOpen = ref(false)
+const sessionUserId = ref<string | null>(null)
+const sessionUserLabel = ref('')
+function openSessions(row: UserRow) {
+  sessionUserId.value = row.id
+  sessionUserLabel.value = row.name || row.username
+  sessionDrawerOpen.value = true
+}
 async function toggleActive(row: UserRow) {
   try {
     await users.setActive(row.id, !row.active)
@@ -116,9 +131,10 @@ async function toggleActive(row: UserRow) {
   <section class="panel">
     <WPageHeader title="사용자" desc="시스템 사용자 관리" add-label="+ 사용자 등록"
       v-model:search="search" @add="openCreate" @refresh="refresh" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="150">
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="canManageSessions ? 210 : 150">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openEdit(row as UserRow)">편집</button>
+        <button v-if="canManageSessions" class="act act--ghost" @click="openSessions(row as UserRow)">세션</button>
         <button class="act" :class="(row as UserRow).active ? 'act--danger' : 'act--primary'"
           @click="toggleActive(row as UserRow)">{{ (row as UserRow).active ? '정지' : '활성' }}</button>
       </template>
@@ -157,6 +173,9 @@ async function toggleActive(row: UserRow) {
         <button class="act act--primary" @click="save">저장</button>
       </template>
     </WDrawer>
+
+    <UserSessionsDrawer v-if="canManageSessions" v-model:open="sessionDrawerOpen"
+      :user-id="sessionUserId" :user-label="sessionUserLabel" />
   </section>
 </template>
 

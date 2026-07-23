@@ -36,4 +36,22 @@ describe('useSessions', () => {
     await useSessions().revokeOthers()
     expect(apiMock).toHaveBeenCalledWith('/auth/sessions/revoke-others', { method: 'POST' })
   })
+
+  it('listForUser(id) calls GET /users/{id}/sessions and unwraps values', async () => {
+    apiMock.mockResolvedValue({ values: [{ familyId: 'f2', createdAt: 1, lastUsedAt: 2, active: true, current: false }] })
+    const result = await useSessions().listForUser('u-1')
+    expect(apiMock).toHaveBeenCalledWith('/users/u-1/sessions')
+    expect(result).toEqual([{ familyId: 'f2', createdAt: 1, lastUsedAt: 2, active: true, current: false }])
+  })
+
+  it('listForUser(id) defaults to [] when values is missing', async () => {
+    apiMock.mockResolvedValue({})
+    expect(await useSessions().listForUser('u-1')).toEqual([])
+  })
+
+  it('revokeForUser(id, familyId) posts to /users/{id}/sessions/{familyId}/revoke', async () => {
+    apiMock.mockResolvedValue({})
+    await useSessions().revokeForUser('u-1', 'fam-456')
+    expect(apiMock).toHaveBeenCalledWith('/users/u-1/sessions/fam-456/revoke', { method: 'POST' })
+  })
 })
