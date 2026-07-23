@@ -45,9 +45,12 @@ function fmt(ms: number) { return new Date(ms).toLocaleString('ko-KR') }
 
 const confirmOpen = ref(false)
 const pendingRevoke = ref<SessionView | null>(null)
-const confirmMessage = computed(() =>
-  pendingRevoke.value ? `${pendingRevoke.value.userAgent || '알 수 없는 기기'} — 이 세션을 강제 로그아웃 처리합니다.` : '',
-)
+const confirmMessage = computed(() => {
+  if (!pendingRevoke.value) return ''
+  const device = pendingRevoke.value.userAgent || '알 수 없는 기기'
+  const user = props.userLabel || '유저'
+  return `${user} 님의 ${device} — 이 세션을 강제 로그아웃 처리합니다.`
+})
 function askRevoke(s: SessionView) { pendingRevoke.value = s; confirmOpen.value = true }
 async function doRevoke() {
   const s = pendingRevoke.value
@@ -69,6 +72,7 @@ function close() { emit('update:open', false) }
 <template>
   <WDrawer :open="open" title="세션 관리" :description="userLabel ? `${userLabel}의 로그인 세션` : '유저의 로그인 세션'"
     @update:open="v => emit('update:open', v)">
+    <div v-if="userLabel" class="user-header">{{ userLabel }} 님의 로그인 세션</div>
     <div v-if="pending" class="muted">불러오는 중…</div>
     <div v-else-if="!list.length" class="muted">활성 세션이 없습니다.</div>
     <ul v-else class="sess-list">
@@ -94,6 +98,7 @@ function close() { emit('update:open', false) }
 </template>
 
 <style scoped>
+.user-header { color: var(--ink); font-size: 14px; font-weight: 600; margin-bottom: 16px; }
 .muted { color: var(--ink-2); font-size: 12px; }
 .sess-list { display: flex; flex-direction: column; gap: 10px; list-style: none; padding: 0; margin: 0; }
 .sess-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--th); }
