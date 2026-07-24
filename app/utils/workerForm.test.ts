@@ -11,8 +11,8 @@ describe('blankWorkerForm', () => {
 })
 
 describe('blankWorkerCreateForm', () => {
-  it('defaults type to ContractCrawl, empty name, active (not paused)', () => {
-    expect(blankWorkerCreateForm()).toEqual({ name: '', type: 'ContractCrawl', paused: false })
+  it('defaults type to ContractCrawl, active (not paused)', () => {
+    expect(blankWorkerCreateForm()).toEqual({ type: 'ContractCrawl', paused: false })
   })
 })
 
@@ -23,19 +23,16 @@ describe('WORKER_TYPE_OPTIONS', () => {
 })
 
 describe('toCreateWorkerRequest', () => {
-  it('trims the name and passes name/type/paused through', () => {
-    expect(toCreateWorkerRequest({ name: '  win-worker-1 ', type: 'ContractCrawl', paused: false }))
-      .toEqual({ name: 'win-worker-1', type: 'ContractCrawl', paused: false })
+  it('passes type/paused through (name is not collected)', () => {
+    expect(toCreateWorkerRequest({ type: 'ContractCrawl', paused: false }))
+      .toEqual({ type: 'ContractCrawl', paused: false })
   })
   it('carries the paused flag when set', () => {
-    expect(toCreateWorkerRequest({ name: 'w', type: 'ContractCrawl', paused: true }))
-      .toEqual({ name: 'w', type: 'ContractCrawl', paused: true })
-  })
-  it('rejects an empty (or whitespace-only) name', () => {
-    expect(() => toCreateWorkerRequest({ name: '   ', type: 'ContractCrawl', paused: false })).toThrow('워커 이름')
+    expect(toCreateWorkerRequest({ type: 'ContractCrawl', paused: true }))
+      .toEqual({ type: 'ContractCrawl', paused: true })
   })
   it('rejects an empty type', () => {
-    expect(() => toCreateWorkerRequest({ name: 'w', type: '', paused: false })).toThrow('워커 유형')
+    expect(() => toCreateWorkerRequest({ type: '', paused: false })).toThrow('워커 유형')
   })
 })
 

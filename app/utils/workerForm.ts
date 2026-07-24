@@ -24,16 +24,15 @@ export function workerTypeLabel(type: string): string {
 }
 
 // --- 워커 생성 (관리자) ---
-// 신원은 서버가 발급하는 API 키뿐이라, 생성 시 필요한 값은 이름/유형만이다.
-// (id는 서버 생성, tags/shared는 현재 UI에서 다루지 않음)
+// 신원은 서버가 발급하는 API 키뿐이고, 표시 이름은 런처가 register 시 채운다.
+// 생성 시 필요한 값은 유형뿐이다. (id는 서버 생성, tags/shared는 현재 UI에서 다루지 않음)
 export interface WorkerCreateForm {
-  name: string
   type: string
   paused: boolean // true면 작업 배정 중단 상태로 생성 (재개 전까지 작업 안 받음)
 }
 
 export function blankWorkerCreateForm(): WorkerCreateForm {
-  return { name: '', type: 'ContractCrawl', paused: false }
+  return { type: 'ContractCrawl', paused: false }
 }
 
 // 생성 <select> 옵션. WORKER_TYPE_LABELS에서 파생(항목 추가 시 자동 반영).
@@ -41,9 +40,8 @@ export const WORKER_TYPE_OPTIONS: { value: string, label: string }[] =
   Object.entries(WORKER_TYPE_LABELS).map(([value, label]) => ({ value, label }))
 
 export function toCreateWorkerRequest(f: WorkerCreateForm): CreateWorkerRequest {
-  if (!f.name.trim()) throw new Error('워커 이름을 입력하세요.')
   if (!f.type) throw new Error('워커 유형을 선택하세요.')
-  return { name: f.name.trim(), type: f.type, paused: f.paused }
+  return { type: f.type, paused: f.paused }
 }
 
 // legacy WorkerStateEnum(pretty) 매핑 + 스위퍼가 찍는 offline 포함.

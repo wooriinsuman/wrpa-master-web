@@ -271,11 +271,7 @@ async function copyKey() {
     <WEmptyState v-else title="워커가 없습니다"
       :message="pending ? '불러오는 중…' : '워커가 등록되면 여기에 표시됩니다.'" />
 
-    <WDrawer v-model:open="createOpen" title="워커 등록" description="워커를 미리 생성합니다. 저장하면 API 키가 1회 표시됩니다.">
-      <label class="fld">
-        <span>이름 <span class="req">*</span></span>
-        <input v-model="createForm.name" placeholder="win-worker-1" />
-      </label>
+    <WDrawer v-model:open="createOpen" title="워커 등록" description="워커를 미리 생성합니다. 이름은 런처에서 설정되며, 저장하면 API 키가 1회 표시됩니다.">
       <label class="fld">
         <span>유형 <span class="req">*</span></span>
         <select v-model="createForm.type">

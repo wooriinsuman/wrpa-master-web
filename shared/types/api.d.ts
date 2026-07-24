@@ -1340,7 +1340,7 @@ export interface components {
             values: components["schemas"]["WorkerView"][];
         };
         CreateWorkerRequest: {
-            name: string;
+            name?: string;
             type: string;
             tags?: string[];
             shared?: boolean;

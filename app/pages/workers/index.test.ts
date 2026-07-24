@@ -58,17 +58,10 @@ describe('workers page', () => {
     const el = await mountSuspended(WorkersPage)
     await el.findAll('button').find(b => b.text() === '+ 워커 등록')!.trigger('click')
     await flushPromises()
-    // 생성 드로어는 body로 포탈됨 — 이름 입력 후 저장.
-    const nameInput = Array.from(document.body.querySelectorAll('input'))
-      .find(i => (i as HTMLInputElement).placeholder === 'win-worker-1') as HTMLInputElement
-    expect(nameInput).toBeTruthy()
-    nameInput.value = 'win-worker-1'
-    nameInput.dispatchEvent(new Event('input'))
-    await flushPromises()
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: false, companyIds: [], insurerIds: [] })
+    expect(createMock).toHaveBeenCalledWith({ type: 'ContractCrawl', paused: false, companyIds: [], insurerIds: [] })
     expect(document.body.textContent).toContain('wk_CREATED999')
   })
 
@@ -78,11 +71,6 @@ describe('workers page', () => {
     const el = await mountSuspended(WorkersPage)
     await el.findAll('button').find(b => b.text() === '+ 워커 등록')!.trigger('click')
     await flushPromises()
-    const nameInput = Array.from(document.body.querySelectorAll('input'))
-      .find(i => (i as HTMLInputElement).placeholder === 'win-worker-1') as HTMLInputElement
-    nameInput.value = 'win-worker-1'
-    nameInput.dispatchEvent(new Event('input'))
-    await flushPromises()
     // 생성 드로어의 회사 칩을 선택.
     const chip = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent?.trim() === '우리인슈맨라이프') as HTMLButtonElement
     expect(chip).toBeTruthy()
@@ -91,7 +79,7 @@ describe('workers page', () => {
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: false, companyIds: ['c1'], insurerIds: [] })
+    expect(createMock).toHaveBeenCalledWith({ type: 'ContractCrawl', paused: false, companyIds: ['c1'], insurerIds: [] })
   })
 
   it('creates a paused worker when the checkbox is checked', async () => {
@@ -100,10 +88,6 @@ describe('workers page', () => {
     const el = await mountSuspended(WorkersPage)
     await el.findAll('button').find(b => b.text() === '+ 워커 등록')!.trigger('click')
     await flushPromises()
-    const nameInput = Array.from(document.body.querySelectorAll('input'))
-      .find(i => (i as HTMLInputElement).placeholder === 'win-worker-1') as HTMLInputElement
-    nameInput.value = 'win-worker-1'
-    nameInput.dispatchEvent(new Event('input'))
     const check = document.body.querySelector('input[type=checkbox]') as HTMLInputElement
     check.checked = true
     check.dispatchEvent(new Event('change'))
@@ -111,18 +95,7 @@ describe('workers page', () => {
     const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
     save.click()
     await flushPromises()
-    expect(createMock).toHaveBeenCalledWith({ name: 'win-worker-1', type: 'ContractCrawl', paused: true, companyIds: [], insurerIds: [] })
-  })
-
-  it('does not call create when the name is empty', async () => {
-    listMock.mockResolvedValue(oneWorker())
-    const el = await mountSuspended(WorkersPage)
-    await el.findAll('button').find(b => b.text() === '+ 워커 등록')!.trigger('click')
-    await flushPromises()
-    const save = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent === '저장') as HTMLButtonElement
-    save.click()
-    await flushPromises()
-    expect(createMock).not.toHaveBeenCalled()
+    expect(createMock).toHaveBeenCalledWith({ type: 'ContractCrawl', paused: true, companyIds: [], insurerIds: [] })
   })
 
   it('rotates the key and reveals it when 키 재발급 is clicked', async () => {
