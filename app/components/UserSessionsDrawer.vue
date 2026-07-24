@@ -7,8 +7,11 @@ import { computed, ref, watch } from 'vue'
 import type { components } from '#shared/types/api'
 import type { StatusKind } from '~/utils/status'
 import { extractApiError } from '~/utils/apiError'
+import { fmtDateTime } from '~/utils/format'
+import { activityLabel, activityKind } from '~/utils/activity'
 
 type SessionView = components['schemas']['SessionView']
+type ActivityView = components['schemas']['ActivityView']
 
 function statusOf(s: SessionView): { label: string; kind: StatusKind } {
   if (s.current) return { label: '현재 기기', kind: 'run' }
@@ -23,10 +26,12 @@ const { push } = useToast()
 
 const list = ref<SessionView[]>([])
 const pending = ref(false)
+const activity = ref<ActivityView[]>([])
+const activityPending = ref(false)
 
 async function load() {
   const id = props.userId
-  if (!id) { list.value = []; return }
+  if (!id) { list.value = []; activity.value = []; return }
   pending.value = true
   try {
     list.value = await sessions.listForUser(id)
@@ -36,12 +41,19 @@ async function load() {
   } finally {
     pending.value = false
   }
+  activityPending.value = true
+  try {
+    activity.value = await sessions.activityForUser(id)
+  } catch (e: any) {
+    push(extractApiError(e, '활동 이력을 불러오지 못했습니다.'), 'error')
+    activity.value = []
+  } finally {
+    activityPending.value = false
+  }
 }
 
 // 열릴 때(또는 열린 채로 대상 유저가 바뀔 때)마다 새로 불러온다.
 watch(() => [props.open, props.userId] as const, ([isOpen]) => { if (isOpen) load() }, { immediate: true })
-
-function fmt(ms: number) { return new Date(ms).toLocaleString('ko-KR') }
 
 const confirmOpen = ref(false)
 const pendingRevoke = ref<SessionView | null>(null)
@@ -81,12 +93,27 @@ function close() { emit('update:open', false) }
           <div class="sess-ua">{{ s.userAgent || '알 수 없는 기기' }}</div>
           <div class="sess-meta">
             <span class="mono">{{ s.clientIp || '-' }}</span>
-            <span>최초 {{ fmt(s.createdAt) }}</span>
-            <span>최근 {{ fmt(s.lastUsedAt) }}</span>
+            <span>최초 {{ fmtDateTime(s.createdAt) }}</span>
+            <span>최근 {{ fmtDateTime(s.lastUsedAt) }}</span>
           </div>
         </div>
         <WStatusBadge :label="statusOf(s).label" :kind="statusOf(s).kind" />
         <button v-if="!s.current && s.active" class="act act--danger" @click="askRevoke(s)">강제 로그아웃</button>
+      </li>
+    </ul>
+
+    <div class="activity-header">활동 이력</div>
+    <div v-if="activityPending" class="muted">불러오는 중…</div>
+    <div v-else-if="!activity.length" class="muted">활동 이력이 없습니다.</div>
+    <ul v-else class="sess-list">
+      <li v-for="(e, i) in activity" :key="i" class="sess-row">
+        <div class="sess-info">
+          <WStatusBadge :label="activityLabel(e.action)" :kind="activityKind(e.action)" />
+          <div class="sess-meta">
+            <span>{{ fmtDateTime(e.createdAt) }}</span>
+            <span v-if="e.ip" class="mono">{{ e.ip }}</span>
+          </div>
+        </div>
       </li>
     </ul>
     <template #footer>
@@ -100,6 +127,7 @@ function close() { emit('update:open', false) }
 <style scoped>
 .user-header { color: var(--ink); font-size: 14px; font-weight: 600; margin-bottom: 16px; }
 .muted { color: var(--ink-2); font-size: 12px; }
+.activity-header { color: var(--ink); font-size: 13px; font-weight: 600; margin: 20px 0 10px; }
 .sess-list { display: flex; flex-direction: column; gap: 10px; list-style: none; padding: 0; margin: 0; }
 .sess-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--th); }
 .sess-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
