@@ -4,10 +4,15 @@ import { ref, computed, useAttrs } from 'vue'
 import type { CrudRow } from '~/utils/crud'
 import type { Column } from '~/components/WDataTable.vue'
 
-const props = defineProps<{
+// NOTE: Vue casts an absent Boolean-typed prop to `false` (not `undefined`) —
+// `removable` needs the opposite default (true unless explicitly disabled), so
+// it's declared via withDefaults rather than relying on plain absence.
+const props = withDefaults(defineProps<{
   title: string
   desc?: string
-  addLabel: string
+  // Omitted/undefined → no add button (mirrors WPageHeader: e.g. a read-only
+  // role hides its create entry point).
+  addLabel?: string
   emptyTitle: string
   columns: Column[]
   rows: Row[]
@@ -15,13 +20,18 @@ const props = defineProps<{
   drawerTitle: string
   drawerDescription?: string
   editable?: boolean
+  // Controls the row 삭제 button. Defaults to true (unchanged for existing
+  // consumers) — pages gating mutations for read-only roles pass `false`.
+  removable?: boolean
   actionsWidth?: number
   indexColumn?: boolean
   // Opt-in checkbox column for multi-select (bulk actions). Off by default.
   selectable?: boolean
   // Label shown inside the delete confirm ("<removeNoun> 삭제하시겠습니까?").
   removeNoun?: string
-}>()
+}>(), {
+  removable: true,
+})
 
 const emit = defineEmits<{
   add: []
@@ -63,7 +73,7 @@ function confirmRemove() {
       <template #actions="{ row }">
         <slot name="row-actions-lead" :row="(row as Row)" />
         <button v-if="editable" class="act act--ghost" @click="emit('edit', row as Row)">상세</button>
-        <button class="act act--danger" @click="askRemove(row as Row)">삭제</button>
+        <button v-if="removable" class="act act--danger" @click="askRemove(row as Row)">삭제</button>
       </template>
     </WDataTable>
     <WEmptyState

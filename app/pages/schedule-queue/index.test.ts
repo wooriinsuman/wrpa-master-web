@@ -1,8 +1,9 @@
 // @vitest-environment nuxt
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import ScheduleQueuePage from './index.vue'
+import { useAuthStore } from '~/stores/auth'
 
 const { getMock, setPriorityMock, cancelMock } = vi.hoisted(() => ({
   getMock: vi.fn(),
@@ -67,6 +68,13 @@ function baseQueue(overrides: Record<string, any> = {}) {
 }
 
 describe('schedule-queue page', () => {
+  // setPriority/cancel은 /works/{id}/...라 백엔드에서 RankSystem 전용이다 — 기존
+  // 동작(우선순위 편집+취소 노출)은 SYSTEM 기준으로 검증한다. 비-SYSTEM 게이팅은 별도 테스트에서 확인.
+  beforeEach(() => {
+    const auth = useAuthStore()
+    auth.user = { userId: 'sys', username: 'sys', roles: [], level: 30 }
+  })
+
   it('renders one row per entry, an editable priority + cancel button only on the pending row, and worker options', async () => {
     getMock.mockResolvedValue(baseQueue())
     const el = await mountSuspended(ScheduleQueuePage)
@@ -96,5 +104,16 @@ describe('schedule-queue page', () => {
     clearNuxtData(['schedule-queue', 'schedule-queue-datatypes'])
     const el = await mountSuspended(ScheduleQueuePage)
     expect(el.text()).toContain('시뮬레이션')
+  })
+
+  it('ADMIN(rank 20)에게는 우선순위 입력/취소 버튼이 보이지 않는다 (해당 엔드포인트는 RankSystem 전용)', async () => {
+    const auth = useAuthStore()
+    auth.user = { userId: 'a1', username: 'admin', roles: [], level: 20, companyId: 'c1' }
+    getMock.mockResolvedValue(baseQueue())
+    clearNuxtData(['schedule-queue', 'schedule-queue-datatypes'])
+    const el = await mountSuspended(ScheduleQueuePage)
+
+    expect(el.findAll('input[type="number"]').length).toBe(0)
+    expect(el.findAll('button').filter(b => b.text() === '취소').length).toBe(0)
   })
 })

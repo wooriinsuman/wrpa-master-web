@@ -23,6 +23,10 @@ interface QueueRow {
 const queue = useScheduleQueue()
 const dataTypes = useDataTypes()
 const { push } = useToast()
+// setPriority/cancel은 /works/{id}/... 엔드포인트라 백엔드에서 RankSystem
+// 전용이다(RankAdmin이 아님 — app.go의 works 라우트 그룹 참고) — 우선순위
+// 편집/취소 컨트롤은 SYSTEM에게만 노출한다.
+const authStore = useAuthStore()
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
@@ -143,7 +147,7 @@ async function cancelWork(e: Entry) {
 
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="190">
       <template #actions="{ row }">
-        <template v-if="isPending((row as QueueRow)._src)">
+        <template v-if="authStore.isSystem && isPending((row as QueueRow)._src)">
           <input
             type="number"
             class="mono pr-input"

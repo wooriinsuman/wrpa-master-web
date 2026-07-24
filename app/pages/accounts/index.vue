@@ -98,7 +98,7 @@ async function runUnlock(row: AccountRow) {
   <WCrudPage
     title="계정"
     desc="보험사 로그인 계정"
-    add-label="+ 계정 등록"
+    :add-label="authStore.isAdmin ? '+ 계정 등록' : undefined"
     empty-title="계정이 없습니다"
     remove-noun="계정"
     index-column
@@ -107,7 +107,8 @@ async function runUnlock(row: AccountRow) {
     :columns="columns"
     :rows="rows"
     :pending="pending"
-    editable
+    :editable="authStore.isAdmin"
+    :removable="authStore.isAdmin"
     :actions-width="208"
     v-model:search="search"
     v-model:drawer-open="drawerOpen"
@@ -118,8 +119,10 @@ async function runUnlock(row: AccountRow) {
     @remove="remove"
   >
     <template #row-actions-lead="{ row }">
-      <button v-if="row.locked" class="act act--ghost" @click="runUnlock(row)">잠금해제</button>
-      <button v-else class="act act--ghost" @click="runLock(row)">잠금</button>
+      <template v-if="authStore.isAdmin">
+        <button v-if="row.locked" class="act act--ghost" @click="runUnlock(row)">잠금해제</button>
+        <button v-else class="act act--ghost" @click="runLock(row)">잠금</button>
+      </template>
     </template>
     <template #fields>
       <label class="fld"><span>회사</span>

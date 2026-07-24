@@ -194,4 +194,68 @@ describe('order-policies page', () => {
     // companies[0]가 아니라 auth.companyId('c1')로 목록을 조회한다.
     expect(listMock).toHaveBeenCalledWith('c1')
   })
+
+  it('ADMIN(non-SYSTEM)의 등록 드로어/복사 대상 select도 회사 선택자가 없고 자기 회사로 고정된다', async () => {
+    const auth = useAuthStore()
+    auth.user = { userId: 'a1', username: 'admin', roles: [], level: 20, companyId: 'c1' }
+    listMock.mockResolvedValue([
+      {
+        id: 'p1',
+        companyId: 'c1',
+        insuranceCompanyCode: null,
+        rows: [{ bizDayFrom: 1, bizDayTo: 2, order: ['-1:new', '0:new'] }],
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    ])
+    clearNuxtData(['order-policies'])
+    const el = await mountSuspended(OrderPoliciesPage)
+
+    // 등록 드로어: 회사 select가 없고, 자기 회사명이 disabled input으로 표시된다.
+    const addBtn = el.findAll('button').find(b => b.text() === '+ 정책 등록')!
+    await addBtn.trigger('click')
+    await new Promise(r => setTimeout(r, 0))
+    let panel = document.querySelector('.dw-panel')!
+    expect(panel.querySelectorAll('select')).toHaveLength(1) // 보험사 select만 남는다
+    const companyInput = panel.querySelector('input[disabled]') as HTMLInputElement
+    expect(companyInput.value).toBe('테스트회사')
+
+    const cancelBtn = Array.from(panel.querySelectorAll('button')).find(b => b.textContent === '취소') as HTMLButtonElement
+    cancelBtn.click()
+    await new Promise(r => setTimeout(r, 0))
+
+    // 복사 대상 select도 동일하게 잠긴다.
+    const rowCheckbox = el.find('.dt-td--sel input[type="checkbox"]')
+    await rowCheckbox.setValue(true)
+    const copyBtn = el.findAll('button').find(b => b.text() === '선택 복사')!
+    await copyBtn.trigger('click')
+    await new Promise(r => setTimeout(r, 0))
+    panel = document.querySelector('.dw-panel')!
+    expect(panel.querySelectorAll('select')).toHaveLength(1) // 대상 보험사 select만 남는다
+    const targetCompanyInput = panel.querySelector('input[disabled]') as HTMLInputElement
+    expect(targetCompanyInput.value).toBe('테스트회사')
+  })
+
+  it('USER(rank 10)에게는 등록/선택 복사/상세/삭제 버튼이 보이지 않는다', async () => {
+    const auth = useAuthStore()
+    auth.user = { userId: 'u1', username: 'user', roles: [], level: 10, companyId: 'c1' }
+    listMock.mockResolvedValue([
+      {
+        id: 'p1',
+        companyId: 'c1',
+        insuranceCompanyCode: null,
+        rows: [{ bizDayFrom: 1, bizDayTo: 2, order: ['-1:new', '0:new'] }],
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    ])
+    clearNuxtData(['order-policies'])
+    const el = await mountSuspended(OrderPoliciesPage)
+
+    const buttonTexts = el.findAll('button').map(b => b.text())
+    expect(buttonTexts).not.toContain('+ 정책 등록')
+    expect(buttonTexts).not.toContain('선택 복사')
+    expect(buttonTexts).not.toContain('상세')
+    expect(buttonTexts).not.toContain('삭제')
+  })
 })

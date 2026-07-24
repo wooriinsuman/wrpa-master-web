@@ -109,13 +109,15 @@ const form = ref<OrderPolicyForm>(blank())
 function openCreate() {
   editingId.value = null
   form.value = blank()
+  // 비-SYSTEM은 회사 선택자가 없다 — 폼도 항상 자기 회사로 고정한다.
+  if (!authStore.isSystem) form.value.companyId = authStore.companyId
   drawerOpen.value = true
 }
 
 function openEdit(p: View) {
   editingId.value = p.id
   form.value = {
-    companyId: p.companyId,
+    companyId: authStore.isSystem ? p.companyId : authStore.companyId,
     insuranceCompanyCode: p.insuranceCompanyCode ?? '',
     rows: p.rows.map(r => ({ bizDayFrom: r.bizDayFrom, bizDayTo: r.bizDayTo ?? null, order: [...r.order], draftOffset: 0, draftDataType: '' })),
   }
@@ -197,7 +199,8 @@ function openCopy() {
     push('한 개의 정책을 선택하세요')
     return
   }
-  copyTargetCompany.value = copySource.value.companyId
+  // 비-SYSTEM은 대상 회사도 자기 회사로 고정 — 다른 회사로 복사할 수 없다.
+  copyTargetCompany.value = authStore.isSystem ? copySource.value.companyId : authStore.companyId
   copyTargetInsurer.value = ''
   copyOpen.value = true
 }
@@ -262,8 +265,8 @@ async function removePolicy(p: View) {
           <template #leading><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.36" /><path d="M21 3v6h-6" /></svg></template>
           조회
         </WButton>
-        <button class="act act--ghost" :disabled="selected.length !== 1" @click="openCopy">선택 복사</button>
-        <button class="act act--primary" @click="openCreate">+ 정책 등록</button>
+        <button v-if="authStore.isAdmin" class="act act--ghost" :disabled="selected.length !== 1" @click="openCopy">선택 복사</button>
+        <button v-if="authStore.isAdmin" class="act act--primary" @click="openCreate">+ 정책 등록</button>
       </div>
     </div>
 
@@ -272,15 +275,17 @@ async function removePolicy(p: View) {
         <WOrderBands :rows="row._src.rows" :dataTypeNames="dataTypeNames" summary />
       </template>
       <template #actions="{ row }">
-        <button class="act act--ghost" @click="openEdit(row._src)">상세</button>
-        <button class="act act--danger" @click="removePolicy(row._src)">삭제</button>
+        <template v-if="authStore.isAdmin">
+          <button class="act act--ghost" @click="openEdit(row._src)">상세</button>
+          <button class="act act--danger" @click="removePolicy(row._src)">삭제</button>
+        </template>
       </template>
     </WDataTable>
     <WEmptyState
       v-else
       title="등록된 정책이 없습니다"
       :message="pending ? '불러오는 중…' : '회사를 선택하고 정책을 등록하세요.'"
-      cta-label="+ 정책 등록"
+      :cta-label="authStore.isAdmin ? '+ 정책 등록' : undefined"
       @cta="openCreate"
     />
 
@@ -290,9 +295,10 @@ async function removePolicy(p: View) {
       description="영업일 구간별 카테고리 처리 순서를 정의합니다."
     >
       <label class="fld"><span>회사 <span class="req">*</span></span>
-        <select v-model="form.companyId" :disabled="!!editingId">
+        <select v-if="authStore.isSystem" v-model="form.companyId" :disabled="!!editingId">
           <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <input v-else :value="ownCompanyName" disabled />
       </label>
       <label class="fld"><span>보험사 (비우면 회사 기본)</span>
         <select v-model="form.insuranceCompanyCode" :disabled="!!editingId">
@@ -367,9 +373,10 @@ async function removePolicy(p: View) {
         <span>원본: {{ companyName(copySource.companyId) }} / {{ copySource.insuranceCompanyCode ? insurerName(copySource.insuranceCompanyCode) : '회사 기본' }}</span>
       </div>
       <label class="fld"><span>대상 회사 <span class="req">*</span></span>
-        <select v-model="copyTargetCompany">
+        <select v-if="authStore.isSystem" v-model="copyTargetCompany">
           <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <input v-else :value="ownCompanyName" disabled />
       </label>
       <label class="fld"><span>대상 보험사 (비우면 회사 기본)</span>
         <select v-model="copyTargetInsurer">

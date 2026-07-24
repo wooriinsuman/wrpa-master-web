@@ -13,6 +13,9 @@ interface WorkRow { id: string; status: StatusCell; company: string; tasks: stri
 const works = useWorks()
 const dataTypes = useDataTypes()
 const { push } = useToast()
+// POST/GET /works는 백엔드에서 RankSystem 전용이다(RankAdmin이 아님 — app.go의
+// "Work enqueue/list — SYSTEM-only" 라우트 그룹 참고) — 실행 버튼은 SYSTEM에게만 노출한다.
+const authStore = useAuthStore()
 const { data, refresh, pending } = await useAsyncData('works', () => works.list())
 const { data: dtData } = await useAsyncData('works-datatypes', () => dataTypes.list())
 const dataTypeNames = computed<Record<string, string>>(() =>
@@ -73,7 +76,7 @@ const resultText = computed(() =>
 
 <template>
   <section class="panel">
-    <WPageHeader title="진행 작업" desc="실행 중·완료된 작업" add-label="+ 작업 실행"
+    <WPageHeader title="진행 작업" desc="실행 중·완료된 작업" :add-label="authStore.isSystem ? '+ 작업 실행' : undefined"
       v-model:search="search" @add="openEnqueue" @refresh="refresh" />
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
       <template #actions="{ row }">
@@ -82,7 +85,7 @@ const resultText = computed(() =>
     </WDataTable>
     <WEmptyState v-else title="진행 중인 작업이 없습니다"
       :message="pending ? '불러오는 중…' : '작업을 실행하면 여기에 표시됩니다.'"
-      cta-label="+ 작업 실행" @cta="openEnqueue" />
+      :cta-label="authStore.isSystem ? '+ 작업 실행' : undefined" @cta="openEnqueue" />
 
     <WDrawer v-model:open="enqueueOpen" title="작업 실행" description="보험사 코드와 태스크를 입력해 작업을 실행하세요.">
       <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.company" placeholder="samsung_property" /></label>

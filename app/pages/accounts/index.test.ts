@@ -1,5 +1,5 @@
 // @vitest-environment nuxt
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import AccountsPage from './index.vue'
@@ -16,6 +16,12 @@ mockNuxtImport('useClients', () => () => ({
 mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
 
 describe('accounts page', () => {
+  // 기존 동작(등록/잠금 버튼 노출)은 ADMIN 기준으로 검증한다 — USER 게이팅은 별도 테스트에서 확인.
+  beforeEach(() => {
+    const auth = useAuthStore()
+    auth.user = { userId: 'a0', username: 'admin', roles: [], level: 20, companyId: 'c1' }
+  })
+
   it('renders an account row with the company name (not its UUID) and a normal status badge', async () => {
     listMock.mockResolvedValue([
       { id: 'a1', insuranceCompanyCode: 'samsung_property', name: '주계정', companyId: 'c1', locked: false, createdAt: 0, updatedAt: 0 },
@@ -69,5 +75,21 @@ describe('accounts page', () => {
     saveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await new Promise(r => setTimeout(r))
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ companyId: 'c1' }))
+  })
+
+  it('USER(rank 10)에게는 등록/상세/삭제/잠금 버튼이 보이지 않는다', async () => {
+    listMock.mockResolvedValue([
+      { id: 'a1', insuranceCompanyCode: 'samsung_property', name: '주계정', companyId: 'c1', locked: false, createdAt: 0, updatedAt: 0 },
+    ])
+    const auth = useAuthStore()
+    auth.user = { userId: 'u1', username: 'user', roles: [], level: 10, companyId: 'c1' }
+    const el = await mountSuspended(AccountsPage)
+
+    const buttonTexts = el.findAll('button').map(b => b.text())
+    expect(buttonTexts).not.toContain('+ 계정 등록')
+    expect(buttonTexts).not.toContain('상세')
+    expect(buttonTexts).not.toContain('삭제')
+    expect(buttonTexts).not.toContain('잠금')
+    expect(buttonTexts).not.toContain('잠금해제')
   })
 })
