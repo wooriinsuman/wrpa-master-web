@@ -5,9 +5,9 @@ import { ref } from 'vue'
 import AccountsPage from './index.vue'
 import { useAuthStore } from '~/stores/auth'
 
-const { listMock, lockMock } = vi.hoisted(() => ({ listMock: vi.fn(), lockMock: vi.fn() }))
+const { listMock, lockMock, createMock } = vi.hoisted(() => ({ listMock: vi.fn(), lockMock: vi.fn(), createMock: vi.fn() }))
 mockNuxtImport('useAccounts', () => () => ({
-  list: listMock, create: vi.fn(), update: vi.fn(), remove: vi.fn(), lock: lockMock, unlock: vi.fn(),
+  list: listMock, create: createMock, update: vi.fn(), remove: vi.fn(), lock: lockMock, unlock: vi.fn(),
 }))
 mockNuxtImport('useClients', () => () => ({
   list: vi.fn().mockResolvedValue([{ id: 'c1', name: '우리인슈맨라이프', code: 'woori', active: true }]),
@@ -56,5 +56,18 @@ describe('accounts page', () => {
     const companyInput = Array.from(document.querySelectorAll('input')).find(i => (i as HTMLInputElement).value === '우리인슈맨라이프')
     expect(companyInput).toBeTruthy()
     expect((companyInput as HTMLInputElement).disabled).toBe(true)
+
+    // 표시만이 아니라 실제 저장 payload가 자기 회사로 고정되는지 검증한다
+    // (강제 라인이 사라져도 잡히도록). 필수 입력을 채우고 저장한다.
+    createMock.mockResolvedValue(undefined)
+    for (const el2 of Array.from(document.querySelectorAll('input')) as HTMLInputElement[]) {
+      if (el2.disabled) continue
+      el2.value = 'x'
+      el2.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === '저장')!
+    saveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r))
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ companyId: 'c1' }))
   })
 })
