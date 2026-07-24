@@ -15,8 +15,9 @@ describe('NAV minRank gating', () => {
     NAV.filter(n => level >= (n.minRank ?? 0)).map(n => n.route).sort()
 
   it('level 10 (user) sees only the USER-rank routes', () => {
+    // /jobs = /works monitoring (SYSTEM-only backend), so NOT visible to USER.
     expect(visibleRoutes(RANK_USER)).toEqual(
-      ['/', '/accounts', '/jobs', '/order-policies', '/schedule-queue'].sort(),
+      ['/', '/accounts', '/order-policies', '/schedule-queue'].sort(),
     )
   })
 
@@ -28,6 +29,7 @@ describe('NAV minRank gating', () => {
     expect(routes).not.toContain('/workers')
     expect(routes).not.toContain('/packages')
     expect(routes).not.toContain('/insurers')
+    expect(routes).not.toContain('/jobs') // SYSTEM-only works monitoring
   })
 
   it('level 30 (system) sees every route', () => {
