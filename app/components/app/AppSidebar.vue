@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { NAV_GROUPS } from '~/utils/nav'
 
 const route = useRoute()
+const auth = useAuthStore()
 const isActive = (itemRoute: string) => {
   if (itemRoute === '/') return route.path === '/'
   return route.path === itemRoute || route.path.startsWith(itemRoute + '/')
 }
+
+// 권한 미만 메뉴는 숨긴다(백엔드가 최종 검증하며, 이건 UX 정리용).
+// 표시할 항목이 하나도 없는 그룹은 그룹 헤더째로 숨긴다.
+const visibleGroups = computed(() =>
+  NAV_GROUPS
+    .map(group => ({ ...group, items: group.items.filter(item => auth.level >= (item.minRank ?? 0)) }))
+    .filter(group => group.items.length > 0),
+)
 </script>
 
 <template>
@@ -21,7 +31,7 @@ const isActive = (itemRoute: string) => {
 
     <!-- Navigation (grouped) -->
     <nav class="nav">
-      <div v-for="group in NAV_GROUPS" :key="group.label" class="nav-group">
+      <div v-for="group in visibleGroups" :key="group.label" class="nav-group">
         <div class="nav-group-label">{{ group.label }}</div>
         <NuxtLink
           v-for="item in group.items"

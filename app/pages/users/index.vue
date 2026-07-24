@@ -14,10 +14,7 @@ const { push } = useToast()
 const authStore = useAuthStore()
 // "세션" 관리 액션은 관리자/시스템에게만 노출한다(백엔드도 동일하게 강제하지만
 // UI에서 먼저 숨겨 혼란을 줄인다).
-const canManageSessions = computed(() => {
-  const roles = authStore.user?.roles ?? []
-  return roles.includes('ROLE_ADMIN') || roles.includes('ROLE_SYSTEM')
-})
+const canManageSessions = computed(() => authStore.isAdmin)
 const { data, refresh, pending } = await useAsyncData('users', async () => {
   const [list, roleList, companyList] = await Promise.all([users.list(), users.roles(), useClients().list()])
   return { list, roleList, companyList }
