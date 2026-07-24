@@ -25,3 +25,10 @@ export function fmtDate(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('ko-KR')
 }
+
+// ms epoch → ko-KR 로컬 표기.
+export function fmtDateTime(ms: number): string {
+  if (!ms && ms !== 0) return '—'
+  const d = new Date(ms)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('ko-KR')
+}

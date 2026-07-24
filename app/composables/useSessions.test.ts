@@ -54,4 +54,40 @@ describe('useSessions', () => {
     await useSessions().revokeForUser('u-1', 'fam-456')
     expect(apiMock).toHaveBeenCalledWith('/users/u-1/sessions/fam-456/revoke', { method: 'POST' })
   })
+
+  it('activity() calls GET /auth/activity with default page/size and unwraps values', async () => {
+    apiMock.mockResolvedValue({ values: [{ action: 'login', createdAt: 1 }] })
+    const result = await useSessions().activity()
+    expect(apiMock).toHaveBeenCalledWith('/auth/activity', { query: { page: 0, size: 50 } })
+    expect(result).toEqual([{ action: 'login', createdAt: 1 }])
+  })
+
+  it('activity(page, size) forwards custom paging', async () => {
+    apiMock.mockResolvedValue({ values: [] })
+    await useSessions().activity(2, 10)
+    expect(apiMock).toHaveBeenCalledWith('/auth/activity', { query: { page: 2, size: 10 } })
+  })
+
+  it('activity() defaults to [] when values is missing', async () => {
+    apiMock.mockResolvedValue({})
+    expect(await useSessions().activity()).toEqual([])
+  })
+
+  it('activityForUser(id) calls GET /users/{id}/activity with default page/size and unwraps values', async () => {
+    apiMock.mockResolvedValue({ values: [{ action: 'logout', createdAt: 2 }] })
+    const result = await useSessions().activityForUser('u-1')
+    expect(apiMock).toHaveBeenCalledWith('/users/u-1/activity', { query: { page: 0, size: 50 } })
+    expect(result).toEqual([{ action: 'logout', createdAt: 2 }])
+  })
+
+  it('activityForUser(id, page, size) forwards custom paging', async () => {
+    apiMock.mockResolvedValue({ values: [] })
+    await useSessions().activityForUser('u-1', 1, 20)
+    expect(apiMock).toHaveBeenCalledWith('/users/u-1/activity', { query: { page: 1, size: 20 } })
+  })
+
+  it('activityForUser(id) defaults to [] when values is missing', async () => {
+    apiMock.mockResolvedValue({})
+    expect(await useSessions().activityForUser('u-1')).toEqual([])
+  })
 })
