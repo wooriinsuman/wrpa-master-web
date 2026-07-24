@@ -4,7 +4,7 @@ import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
 import { formatSince, livenessCell, msToSec } from '~/utils/dashboardState'
-import { workerTypeLabel, blankWorkerCreateForm, toCreateWorkerRequest, WORKER_TYPE_OPTIONS, type WorkerCreateForm } from '~/utils/workerForm'
+import { workerTypeLabel, blankWorkerCreateForm, toCreateWorkerRequest, WORKER_TYPE_OPTIONS, workerDisplayName, type WorkerCreateForm } from '~/utils/workerForm'
 import { extractApiError } from '~/utils/apiError'
 
 type WorkerView = components['schemas']['WorkerView']
@@ -69,7 +69,7 @@ const rows = computed<WorkerRow[]>(() => {
     const live = livenessCell(lastSec, nowSec.value)
     return {
       id: w.id,
-      name: w.name,
+      name: workerDisplayName(w.name),
       type: workerTypeLabel(w.type),
       // 회사 미배정 = 배정 안됨(work 안 받음). 보험사 미배정 = '—'. 모두 칩으로 전체 표시.
       companies: companyIds.length ? companyNames : '배정 안됨',

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   blankWorkerForm, workerTypeLabel, workerStateLabel,
-  blankWorkerCreateForm, toCreateWorkerRequest, WORKER_TYPE_OPTIONS,
+  blankWorkerCreateForm, toCreateWorkerRequest, WORKER_TYPE_OPTIONS, workerDisplayName,
 } from './workerForm'
 
 describe('blankWorkerForm', () => {
@@ -55,5 +55,14 @@ describe('workerStateLabel', () => {
   })
   it('falls back to 알수없음 for empty', () => {
     expect(workerStateLabel('')).toBe('알수없음')
+  })
+})
+
+describe('workerDisplayName', () => {
+  it('returns the name when present', () => {
+    expect(workerDisplayName('ergate-01')).toBe('ergate-01')
+  })
+  it('returns a waiting placeholder when the name is empty', () => {
+    expect(workerDisplayName('')).toBe('(런처 대기중)')
   })
 })

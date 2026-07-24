@@ -44,6 +44,12 @@ export function toCreateWorkerRequest(f: WorkerCreateForm): CreateWorkerRequest 
   return { type: f.type, paused: f.paused }
 }
 
+// 목록 표시용 이름. 워커가 아직 런처에서 register 하기 전이면 name이 빈 문자열이므로
+// 사용자가 "대기중"임을 알 수 있는 placeholder를 보여준다.
+export function workerDisplayName(name: string): string {
+  return name || '(런처 대기중)'
+}
+
 // legacy WorkerStateEnum(pretty) 매핑 + 스위퍼가 찍는 offline 포함.
 const WORKER_STATE_LABELS: Record<string, string> = {
   idle: '대기중',
