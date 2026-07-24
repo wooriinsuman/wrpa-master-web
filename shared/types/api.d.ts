@@ -267,6 +267,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the current user's session activity timeline */
+        get: operations["ListMyActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users": {
         parameters: {
             query?: never;
@@ -343,6 +360,23 @@ export interface paths {
         put?: never;
         /** Revoke one of a target user's login sessions (admin; company-scoped) */
         post: operations["RevokeUserSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a target user's session activity timeline (admin; company-scoped) */
+        get: operations["ListUserActivity"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1164,6 +1198,20 @@ export interface components {
         };
         SessionsList: {
             values: components["schemas"]["SessionView"][];
+        };
+        ActivityView: {
+            action: string;
+            /** Format: int64 */
+            createdAt: number;
+            ip?: string;
+            resourceType?: string;
+            resourceId?: string;
+            detail?: {
+                [key: string]: unknown;
+            };
+        };
+        ActivityList: {
+            values: components["schemas"]["ActivityView"][];
         };
         UserView: {
             id: string;
@@ -2172,6 +2220,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    ListMyActivity: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     ListUsers: {
         parameters: {
             query?: {
@@ -2327,6 +2399,34 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    ListUserActivity: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityList"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
