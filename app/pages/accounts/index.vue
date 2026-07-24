@@ -21,6 +21,10 @@ function companyName(id?: string | null): string {
   return companyNameById.value.get(id) ?? id // 목록에 없으면(삭제 등) id로 폴백
 }
 
+// ADMIN(non-SYSTEM)은 자기 회사에 고정된다 — SYSTEM만 회사를 선택할 수 있다.
+const authStore = useAuthStore()
+const ownCompanyName = computed(() => companyName(authStore.companyId))
+
 const columns: Column[] = [
   { key: 'insurer', label: '보험사', kind: 'mono' },
   { key: 'name', label: '계정명', kind: 'text' },
@@ -55,15 +59,27 @@ function toForm(a: View): AccountForm {
   }
 }
 
+// ADMIN은 회사 선택이 없다 — 새 폼/프리필 모두 자기 회사로 고정한다.
+function blankLocked(): AccountForm {
+  const f = blankAccountForm()
+  if (!authStore.isSystem) f.companyId = authStore.companyId
+  return f
+}
+function toFormLocked(a: View): AccountForm {
+  const f = toForm(a)
+  if (!authStore.isSystem) f.companyId = authStore.companyId
+  return f
+}
+
 const accounts = useAccounts()
 const { push } = useToast()
 const { rows, search, pending, drawerOpen, editingId, form, openCreate, openEdit, save, remove, refresh } =
   await useCrudPage<View, AccountForm, AccountRow>({
     key: 'accounts',
     resource: accounts,
-    blank: blankAccountForm,
+    blank: blankLocked,
     toRow,
-    toForm,
+    toForm: toFormLocked,
     searchKeys: ['insurer', 'name', 'company'],
     messages: { removed: '계정을 삭제했습니다.' },
   })
@@ -107,10 +123,11 @@ async function runUnlock(row: AccountRow) {
     </template>
     <template #fields>
       <label class="fld"><span>회사</span>
-        <select v-model="form.companyId">
+        <select v-if="authStore.isSystem" v-model="form.companyId">
           <option value="">(회사 없음)</option>
           <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <input v-else :value="ownCompanyName" disabled />
       </label>
       <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
       <label class="fld"><span>계정명 <span class="req">*</span></span><input v-model="form.name" /></label>

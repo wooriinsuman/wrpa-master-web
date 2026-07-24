@@ -21,6 +21,8 @@ const clients = useClients()
 const insurers = useInsurers()
 const dataTypes = useDataTypes()
 const { push } = useToast()
+// ADMIN(non-SYSTEM)은 회사 선택자가 없다 — 목록 스코프가 항상 자기 회사로 고정된다.
+const authStore = useAuthStore()
 
 // GET /order-policies는 companyId가 필수라 — 회사 선택자(header select)가
 // 곧 목록 스코프다. holidays의 year select와 동일한 패턴.
@@ -34,8 +36,12 @@ const { data: dataTypesData } = await useAsyncData('order-policies-datatypes', (
 const dataTypeList = computed(() => sortByDataTypeOrder(dataTypesData.value ?? []))
 const dataTypeNames = computed<Record<string, string>>(() => Object.fromEntries(dataTypeList.value.map(d => [d.code, d.name])))
 
-const companyId = ref('')
-watch(companies, cs => { if (!companyId.value && cs.length) companyId.value = cs[0]!.id }, { immediate: true })
+// ADMIN은 목록에 자기 회사만 오므로 companyId를 목록 로드와 무관하게 즉시 고정한다.
+const companyId = ref(authStore.isSystem ? '' : authStore.companyId)
+watch(companies, cs => {
+  if (!authStore.isSystem) { companyId.value = authStore.companyId; return }
+  if (!companyId.value && cs.length) companyId.value = cs[0]!.id
+}, { immediate: true })
 
 const { data, pending, refresh } = await useAsyncData(
   'order-policies',
@@ -56,6 +62,7 @@ async function reload() {
 function companyName(id: string) {
   return companies.value.find(c => c.id === id)?.name ?? id
 }
+const ownCompanyName = computed(() => companyName(authStore.companyId))
 function insurerName(code: string) {
   return insurerList.value.find(i => i.code === code)?.name ?? code
 }
@@ -242,9 +249,10 @@ async function removePolicy(p: View) {
         <div class="hd-desc">영업일 구간별로 카테고리(신계약/계속분 등)를 어떤 순서로 처리할지 정의합니다</div>
       </div>
       <div class="hd-actions">
-        <select v-model="companyId" class="hd-year">
+        <select v-if="authStore.isSystem" v-model="companyId" class="hd-year">
           <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <span v-else class="hd-year">{{ ownCompanyName }}</span>
         <select v-model="insurerFilter" class="hd-year">
           <option value="">전체</option>
           <option value="__default__">회사 기본</option>

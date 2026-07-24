@@ -25,6 +25,8 @@ const companyOptions = computed(() => data.value?.companyList ?? [])
 // 이름으로 환원한다(매핑 실패 시 원본 값으로 폴백).
 const roleName = computed(() => new Map(roleOptions.value.map(r => [r.id, r.name])))
 const companyName = computed(() => new Map(companyOptions.value.map(c => [c.id, c.name])))
+// ADMIN(non-SYSTEM)은 자기 회사에 고정된다 — 폼에 표시할 자기 회사명(폴백: id).
+const ownCompanyName = computed(() => companyName.value.get(authStore.companyId) ?? authStore.companyId)
 // 편집 프리필용: id로 원본 UserView 조회.
 const userById = computed(() => new Map((data.value?.list ?? []).map(u => [u.id, u])))
 
@@ -69,6 +71,8 @@ const drawerTitle = computed(() => (isEdit.value ? '사용자 수정' : '사용�
 function openCreate() {
   editingId.value = null
   form.value = blankUserForm()
+  // ADMIN은 회사 선택이 없다 — 항상 자기 회사로 고정해 생성한다.
+  if (!authStore.isSystem) form.value.companyId = authStore.companyId
   drawerOpen.value = true
 }
 function openEdit(row: UserRow) {
@@ -83,7 +87,8 @@ function openEdit(row: UserRow) {
     email: u.email ?? '',
     mobile: u.mobile ?? '',
     memo: u.memo ?? '',
-    companyId: u.companyId ?? '',
+    // ADMIN은 회사를 바꿀 수 없다 — SYSTEM만 원본 companyId를 그대로 편집.
+    companyId: authStore.isSystem ? (u.companyId ?? '') : authStore.companyId,
     roleIds: resolveRoleIds(u.roles ?? []),
   }
   drawerOpen.value = true
@@ -149,10 +154,11 @@ async function toggleActive(row: UserRow) {
       <label class="fld"><span>이메일</span><input v-model="form.email" type="email" placeholder="user@example.com" /></label>
       <label class="fld"><span>휴대폰</span><input v-model="form.mobile" /></label>
       <label class="fld"><span>회사</span>
-        <select v-model="form.companyId">
+        <select v-if="authStore.isSystem" v-model="form.companyId">
           <option value="">(회사 없음)</option>
           <option v-for="c in companyOptions" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
+        <input v-else :value="ownCompanyName" disabled />
       </label>
       <div class="fld">
         <span>역할</span>

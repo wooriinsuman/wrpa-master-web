@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import AccountsPage from './index.vue'
+import { useAuthStore } from '~/stores/auth'
 
 const { listMock, lockMock } = vi.hoisted(() => ({ listMock: vi.fn(), lockMock: vi.fn() }))
 mockNuxtImport('useAccounts', () => () => ({
@@ -37,5 +38,23 @@ describe('accounts page', () => {
     expect(btn).toBeTruthy()
     await btn.trigger('click')
     expect(lockMock).toHaveBeenCalledWith('a1')
+  })
+
+  it('ADMIN(non-SYSTEM)에게는 회사 선택자가 없고, 등록 폼이 자기 회사로 고정된다', async () => {
+    listMock.mockResolvedValue([])
+    const auth = useAuthStore()
+    auth.user = { userId: 'a1', username: 'admin', roles: [], level: 20, companyId: 'c1' }
+    const el = await mountSuspended(AccountsPage)
+
+    const addBtn = el.findAll('button').find(b => b.text() === '+ 계정 등록')!
+    await addBtn.trigger('click')
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r))
+
+    const drawerSelects = Array.from(document.querySelectorAll('select'))
+    expect(drawerSelects.length).toBe(0)
+    const companyInput = Array.from(document.querySelectorAll('input')).find(i => (i as HTMLInputElement).value === '우리인슈맨라이프')
+    expect(companyInput).toBeTruthy()
+    expect((companyInput as HTMLInputElement).disabled).toBe(true)
   })
 })
