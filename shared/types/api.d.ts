@@ -1184,6 +1184,7 @@ export interface components {
             username: string;
             roles: string[];
             companyId?: string;
+            level?: number;
         };
         SessionView: {
             familyId: string;
@@ -1258,6 +1259,7 @@ export interface components {
         Role: {
             id: string;
             name: string;
+            rank?: number;
             authorities?: string[];
         };
         Company: {
