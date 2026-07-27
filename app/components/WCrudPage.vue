@@ -19,6 +19,8 @@ const props = withDefaults(defineProps<{
   pending: boolean
   drawerTitle: string
   drawerDescription?: string
+  // Opt-in wider drawer (px). Omit for the 440px default.
+  drawerWidth?: number
   editable?: boolean
   // Controls the row 삭제 button. Defaults to true (unchanged for existing
   // consumers) — pages gating mutations for read-only roles pass `false`.
@@ -92,7 +94,7 @@ function confirmRemove() {
       @confirm="confirmRemove"
     />
 
-    <WDrawer v-model:open="drawerOpen" :title="drawerTitle" :description="drawerDescription">
+    <WDrawer v-model:open="drawerOpen" :title="drawerTitle" :description="drawerDescription" :width="drawerWidth">
       <slot name="fields" />
       <template #footer>
         <button class="act act--ghost" @click="drawerOpen = false">취소</button>

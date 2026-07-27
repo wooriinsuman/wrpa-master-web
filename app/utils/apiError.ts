@@ -13,6 +13,7 @@ export type ApiErrorCode =
   | 'conflict'
   | 'work_not_pending'
   | 'workfile_in_use'
+  | 'workfile_duplicate'
   | 'upstream_unavailable' // 프록시 합성: 백엔드 무응답
   | 'upstream_error' // 프록시 합성: 백엔드가 봉투 밖 형태로 응답
 
@@ -27,6 +28,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   forbidden: '권한이 없습니다.',
   work_not_pending: '대기 중인 작업만 조정할 수 있습니다.',
   workfile_in_use: '작업파일이 참조 중이라 삭제할 수 없습니다.',
+  workfile_duplicate: '같은 보험사에 동일한 분류 조합(데이터/유형/보종/컨텐츠)의 작업 파일이 이미 있습니다.',
   upstream_unavailable: 'RPA API를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   upstream_error: 'RPA API 응답을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.',
 }

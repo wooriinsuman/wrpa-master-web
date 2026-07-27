@@ -34,9 +34,13 @@ export interface CrudPageController<Form, Row extends CrudRow> {
   pending: Ref<boolean>
   drawerOpen: Ref<boolean>
   editingId: Ref<string | null>
+  // 복사 생성으로 드로어를 열었는지. editingId는 null(=생성)이라 구분이 안 되므로
+  // 드로어 제목처럼 문구만 달리할 때 쓴다.
+  copying: Ref<boolean>
   form: Ref<Form>
   openCreate: () => void
   openEdit: (row: Row) => void
+  openCopy: (row: Row) => void
   save: () => Promise<void>
   remove: (row: Row) => Promise<void>
   refresh: () => Promise<void>
@@ -52,12 +56,14 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
   const search = ref('')
   const drawerOpen = ref(false)
   const editingId = ref<string | null>(null)
+  const copying = ref(false)
   const form = ref(config.blank()) as Ref<Form>
 
   const rows = computed(() => filterRows((data.value ?? []).map(config.toRow), search.value, config.searchKeys))
 
   function openCreate() {
     editingId.value = null
+    copying.value = false
     form.value = config.blank()
     drawerOpen.value = true
   }
@@ -67,6 +73,19 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
     const entity = (data.value ?? []).find(e => e.id === row.id)
     if (!entity) return
     editingId.value = row.id
+    copying.value = false
+    form.value = config.toForm(entity)
+    drawerOpen.value = true
+  }
+
+  // 복사 생성: 원본 값으로 폼을 채우되 editingId는 비운다 → save()가 update가 아닌
+  // create를 타고, 수정 전용으로 잠가둔 필드(예: 보험사)도 다시 열린다.
+  function openCopy(row: Row) {
+    if (!config.toForm) return
+    const entity = (data.value ?? []).find(e => e.id === row.id)
+    if (!entity) return
+    editingId.value = null
+    copying.value = true
     form.value = config.toForm(entity)
     drawerOpen.value = true
   }
@@ -78,6 +97,7 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
       else await config.resource.create(form.value)
       drawerOpen.value = false
       editingId.value = null
+      copying.value = false
       await refresh()
       push(editing ? msg.updated : msg.created, 'success')
     } catch (e: any) {
@@ -101,9 +121,11 @@ export async function useCrudPage<Entity extends { id: string }, Form, Row exten
     pending: pending as Ref<boolean>,
     drawerOpen,
     editingId,
+    copying,
     form,
     openCreate,
     openEdit,
+    openCopy,
     save,
     remove,
     refresh,

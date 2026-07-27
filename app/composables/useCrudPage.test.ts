@@ -141,4 +141,39 @@ describe('useCrudPage', () => {
     await ctl.remove({ id: '1', name: 'A' })
     expect(pushMock).toHaveBeenCalledWith('삭제에 실패했습니다.', 'error')
   })
+
+  it('openCopy prefills the form from the row but leaves editingId null (create mode)', async () => {
+    const ctl = await mountWith(makeResource([{ id: '1', name: 'A' }]), 't-copy-open')
+    ctl.openCopy({ id: '1', name: 'A' })
+    expect(ctl.drawerOpen.value).toBe(true)
+    expect(ctl.form.value).toEqual({ name: 'A' }) // 원본 값이 채워진다
+    expect(ctl.editingId.value).toBe(null) // 수정이 아니라 생성
+    expect(ctl.copying.value).toBe(true)
+  })
+
+  it('save() after openCopy calls create (not update) and clears copying', async () => {
+    const r = makeResource([{ id: '1', name: 'A' }])
+    const ctl = await mountWith(r, 't-copy-save')
+    ctl.openCopy({ id: '1', name: 'A' })
+    ctl.form.value = { name: 'A 복사본' }
+    await ctl.save()
+    expect(r.create).toHaveBeenCalledWith({ name: 'A 복사본' })
+    expect(r.update).not.toHaveBeenCalled()
+    expect(ctl.copying.value).toBe(false)
+    expect(pushMock).toHaveBeenCalledWith('등록되었습니다.', 'success')
+  })
+
+  it('openCreate after a copy clears the copying flag', async () => {
+    const ctl = await mountWith(makeResource([{ id: '1', name: 'A' }]), 't-copy-then-create')
+    ctl.openCopy({ id: '1', name: 'A' })
+    ctl.openCreate()
+    expect(ctl.copying.value).toBe(false)
+    expect(ctl.form.value).toEqual({ name: '' })
+  })
+
+  it('openCopy is a no-op for an unknown row id', async () => {
+    const ctl = await mountWith(makeResource([{ id: '1', name: 'A' }]), 't-copy-unknown')
+    ctl.openCopy({ id: 'nope', name: 'X' })
+    expect(ctl.drawerOpen.value).toBe(false)
+  })
 })
