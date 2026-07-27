@@ -21,9 +21,10 @@ describe('AppSidebar role gating', () => {
     const auth = useAuthStore()
     auth.user = { userId: '2', username: 'a', roles: [], level: 20 }
     const el = await mountSuspended(AppSidebar)
-    expect(el.text()).toContain('사용자')
-    expect(el.text()).toContain('회사')
     expect(el.text()).toContain('작업 일정')
+    // 사용자/회사 관리는 SYSTEM 전용으로 승격 — ADMIN에게는 더 이상 노출되지 않는다.
+    expect(el.text()).not.toContain('사용자')
+    expect(el.text()).not.toContain('회사')
     expect(el.text()).not.toContain('워커')
     expect(el.text()).not.toContain('패키지')
   })

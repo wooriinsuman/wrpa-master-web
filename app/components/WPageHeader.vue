@@ -27,7 +27,7 @@ async function onRefresh() {
     </div>
     <div class="ph-actions">
       <slot name="header-actions" />
-      <input class="ph-search" :value="search" placeholder="검색…"
+      <input class="ph-search" type="search" name="q" autocomplete="off" :value="search" placeholder="검색…"
         @input="$emit('update:search', ($event.target as HTMLInputElement).value)" />
       <WButton v-if="canRefresh" variant="ghost" :loading="refreshing" title="목록 다시 조회" aria-label="다시 조회" @click="onRefresh">
         <template #leading>

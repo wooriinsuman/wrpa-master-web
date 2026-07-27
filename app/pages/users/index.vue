@@ -20,6 +20,11 @@ const { data, refresh, pending } = await useAsyncData('users', async () => {
   return { list, roleList, companyList }
 })
 const roleOptions = computed<Role[]>(() => data.value?.roleList ?? [])
+// 체크박스 표시 순서: SYSTEM(30) > ADMIN(20) > USER(10) — rank 내림차순.
+// 원본 roleOptions(이름순)는 그대로 두고 표시용 사본만 정렬한다.
+const sortedRoleOptions = computed<Role[]>(() =>
+  [...roleOptions.value].sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0)),
+)
 const companyOptions = computed(() => data.value?.companyList ?? [])
 // id→이름 매핑. UserView.roles/companyId가 이름이 아닌 id를 담을 수 있어 목록에선
 // 이름으로 환원한다(매핑 실패 시 원본 값으로 폴백).
@@ -147,9 +152,9 @@ async function toggleActive(row: UserRow) {
 
     <WDrawer v-model:open="drawerOpen" :title="drawerTitle" description="사용자 정보를 입력한 뒤 저장하세요.">
       <label class="fld"><span>아이디 <span v-if="!isEdit" class="req">*</span></span>
-        <input v-model="form.username" placeholder="admin" :disabled="isEdit" /></label>
+        <input v-model="form.username" placeholder="admin" autocomplete="off" :disabled="isEdit" /></label>
       <label class="fld"><span>{{ isEdit ? '새 비밀번호' : '비밀번호' }} <span v-if="!isEdit" class="req">*</span></span>
-        <input v-model="form.password" type="password" :placeholder="isEdit ? '변경 시에만 입력' : ''" /></label>
+        <input v-model="form.password" type="password" autocomplete="new-password" :placeholder="isEdit ? '변경 시에만 입력' : ''" /></label>
       <label class="fld"><span>이름 <span class="req">*</span></span><input v-model="form.name" /></label>
       <label class="fld"><span>이메일</span><input v-model="form.email" type="email" placeholder="user@example.com" /></label>
       <label class="fld"><span>휴대폰</span><input v-model="form.mobile" /></label>
@@ -163,7 +168,7 @@ async function toggleActive(row: UserRow) {
       <div class="fld">
         <span>역할</span>
         <div v-if="roleOptions.length" class="roles">
-          <label v-for="r in roleOptions" :key="r.id" class="fld fld--row">
+          <label v-for="r in sortedRoleOptions" :key="r.id" class="fld fld--row">
             <input type="checkbox" :checked="form.roleIds.includes(r.id)" @change="toggleRole(r.id)" />
             <span>{{ r.name }}</span>
           </label>

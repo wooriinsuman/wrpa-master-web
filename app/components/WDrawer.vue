@@ -15,7 +15,7 @@ function onOpenChange(v: boolean) { emit('update:open', v); if (!v) emit('close'
           <DialogClose class="dw-close" aria-label="닫기">✕</DialogClose>
         </div>
         <DialogDescription class="sr-only">{{ description ?? '양식을 입력한 뒤 저장하세요.' }}</DialogDescription>
-        <div class="dw-body"><slot /></div>
+        <div class="dw-body" autocomplete="off"><slot /></div>
         <div class="dw-foot"><slot name="footer" /></div>
       </DialogContent>
     </DialogPortal>

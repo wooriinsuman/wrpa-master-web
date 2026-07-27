@@ -16,6 +16,13 @@ describe('WPageHeader', () => {
     await el.find('input').setValue('삼성')
     expect(el.emitted('update:search')?.[0]).toEqual(['삼성'])
   })
+  it('marks the search input non-autofillable so Chrome cannot inject saved credentials into it', async () => {
+    const el = await mountSuspended(WPageHeader, { props: { title: 'x', addLabel: 'y', search: '' } })
+    const input = el.find('input.ph-search')
+    expect(input.attributes('autocomplete')).toBe('off')
+    expect(input.attributes('type')).toBe('search')
+    expect(input.attributes('name')).toBe('q')
+  })
   it('hides the refresh button when no onRefresh handler is provided', async () => {
     const el = await mountSuspended(WPageHeader, { props: { title: 'x', addLabel: 'y' } })
     expect(el.find('[aria-label="다시 조회"]').exists()).toBe(false)

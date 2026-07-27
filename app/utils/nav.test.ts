@@ -23,9 +23,9 @@ describe('NAV minRank gating', () => {
 
   it('level 20 (admin) adds ADMIN-rank routes but not SYSTEM-only ones', () => {
     const routes = visibleRoutes(RANK_ADMIN)
-    expect(routes).toContain('/users')
-    expect(routes).toContain('/clients')
     expect(routes).toContain('/schedules')
+    expect(routes).not.toContain('/users') // SYSTEM-only user management
+    expect(routes).not.toContain('/clients') // SYSTEM-only company management
     expect(routes).not.toContain('/workers')
     expect(routes).not.toContain('/packages')
     expect(routes).not.toContain('/insurers')

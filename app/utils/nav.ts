@@ -24,7 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '기준정보',
     items: [
       { id: 'insurers', code: 'IN', label: '보험사', route: '/insurers', done: true, minRank: RANK_SYSTEM },
-      { id: 'clients', code: 'CL', label: '회사', route: '/clients', done: true, minRank: RANK_ADMIN },
+      { id: 'clients', code: 'CL', label: '회사', route: '/clients', done: true, minRank: RANK_SYSTEM },
       { id: 'accounts', code: 'AC', label: '계정', route: '/accounts', done: true, minRank: RANK_USER },
       { id: 'datatypes', code: 'DT', label: '데이터 유형', route: '/data-types', done: true, minRank: RANK_SYSTEM },
       { id: 'workfiles', code: 'WF', label: '작업 파일', route: '/workfiles', done: true, minRank: RANK_SYSTEM },
@@ -43,7 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'workers', code: 'WK', label: '워커', route: '/workers', done: true, minRank: RANK_SYSTEM },
       { id: 'packages', code: 'PK', label: '패키지', route: '/packages', done: true, minRank: RANK_SYSTEM },
-      { id: 'users', code: 'US', label: '사용자', route: '/users', minRank: RANK_ADMIN },
+      { id: 'users', code: 'US', label: '사용자', route: '/users', minRank: RANK_SYSTEM },
     ],
   },
 ]
