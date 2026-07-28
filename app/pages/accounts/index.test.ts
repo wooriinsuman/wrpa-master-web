@@ -13,6 +13,12 @@ mockNuxtImport('useClients', () => () => ({
   list: vi.fn().mockResolvedValue([{ id: 'c1', name: '우리인슈맨라이프', code: 'woori', active: true }]),
   create: vi.fn(), remove: vi.fn(),
 }))
+mockNuxtImport('useInsurers', () => () => ({
+  list: vi.fn().mockResolvedValue([
+    { id: 'i1', code: 'samsung_property', name: '삼성화재', type: 'PROPERTY', url: '', active: true },
+  ]),
+  create: vi.fn(), update: vi.fn(), remove: vi.fn(),
+}))
 mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
 
 describe('accounts page', () => {
@@ -57,8 +63,11 @@ describe('accounts page', () => {
     await el.vm.$nextTick()
     await new Promise(r => setTimeout(r))
 
-    const drawerSelects = Array.from(document.querySelectorAll('select'))
-    expect(drawerSelects.length).toBe(0)
+    // 보험사 select 하나만 있어야 한다 — 회사 select는 SYSTEM 전용이다.
+    const drawerSelects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[]
+    expect(drawerSelects.length).toBe(1)
+    expect(drawerSelects[0]!.textContent).toContain('삼성화재')
+    expect(drawerSelects[0]!.textContent).not.toContain('우리인슈맨라이프')
     const companyInput = Array.from(document.querySelectorAll('input')).find(i => (i as HTMLInputElement).value === '우리인슈맨라이프')
     expect(companyInput).toBeTruthy()
     expect((companyInput as HTMLInputElement).disabled).toBe(true)
@@ -71,6 +80,8 @@ describe('accounts page', () => {
       el2.value = 'x'
       el2.dispatchEvent(new Event('input', { bubbles: true }))
     }
+    drawerSelects[0]!.value = 'samsung_property'
+    drawerSelects[0]!.dispatchEvent(new Event('change', { bubbles: true }))
     const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === '저장')!
     saveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await new Promise(r => setTimeout(r))

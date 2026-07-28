@@ -21,6 +21,10 @@ function companyName(id?: string | null): string {
   return companyNameById.value.get(id) ?? id // 목록에 없으면(삭제 등) id로 폴백
 }
 
+// 보험사 목록 — 보험사 메뉴(useInsurers)에 등록된 항목을 등록/수정 select 옵션으로.
+const { data: insurersData } = await useAsyncData('accounts:insurers', () => useInsurers().list())
+const insurerOptions = computed(() => insurersData.value ?? [])
+
 // ADMIN(non-SYSTEM)은 자기 회사에 고정된다 — SYSTEM만 회사를 선택할 수 있다.
 const authStore = useAuthStore()
 const ownCompanyName = computed(() => companyName(authStore.companyId))
@@ -132,7 +136,11 @@ async function runUnlock(row: AccountRow) {
         </select>
         <input v-else :value="ownCompanyName" disabled />
       </label>
-      <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.insuranceCompanyCode" :disabled="!!editingId" placeholder="samsung_property" /></label>
+      <label class="fld"><span>보험사 <span class="req">*</span></span>
+        <select v-model="form.insuranceCompanyCode" :disabled="!!editingId">
+          <option value="" disabled>— 보험사 선택 —</option>
+          <option v-for="i in insurerOptions" :key="i.code" :value="i.code">{{ i.name }} ({{ i.code }})</option>
+        </select></label>
       <label class="fld"><span>계정명 <span class="req">*</span></span><input v-model="form.name" /></label>
       <label class="fld"><span>로그인 ID <span v-if="!editingId" class="req">*</span><span v-else> (변경 시 입력)</span></span><input v-model="form.loginId" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
       <label class="fld"><span>비밀번호 <span v-if="!editingId" class="req">*</span><span v-else> (변경 시 입력)</span></span><input v-model="form.password" type="password" :placeholder="editingId ? '변경 시에만 입력' : ''" /></label>
