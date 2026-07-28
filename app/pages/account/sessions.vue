@@ -6,12 +6,14 @@ import type { StatusCell } from '~/utils/status'
 import { extractApiError } from '~/utils/apiError'
 import { fmtDateTime } from '~/utils/format'
 import { activityLabel, activityKind } from '~/utils/activity'
+import { formatUserAgent } from '~/utils/userAgent'
 
 type SessionView = components['schemas']['SessionView']
 type ActivityView = components['schemas']['ActivityView']
 interface SessionRow {
   familyId: string
   device: string
+  deviceTitle: string // UA 원문 — 축약된 device 라벨의 툴팁으로 노출한다.
   ip: string
   createdAt: string
   lastUsedAt: string
@@ -35,7 +37,10 @@ const columns: Column[] = [
 
 const rows = computed<SessionRow[]>(() => list.value.map(s => ({
   familyId: s.familyId,
-  device: s.userAgent || '알 수 없는 기기',
+  // 관리자 드로어와 같은 축약 라벨을 쓴다 — UA 원문은 한 줄을 넘겨 기기 구분에 쓸 수 없다.
+  // formatUserAgent는 빈 값에 '알 수 없는 기기'를, 알아보지 못한 UA에는 원문을 그대로 돌려준다.
+  device: formatUserAgent(s.userAgent),
+  deviceTitle: s.userAgent ?? '',
   ip: s.clientIp || '-',
   createdAt: fmtDateTime(s.createdAt),
   lastUsedAt: fmtDateTime(s.lastUsedAt),
@@ -51,7 +56,7 @@ const rows = computed<SessionRow[]>(() => list.value.map(s => ({
 const confirmOpen = ref(false)
 const pendingRevoke = ref<SessionView | null>(null)
 const confirmMessage = computed(() =>
-  pendingRevoke.value ? `${pendingRevoke.value.userAgent || '알 수 없는 기기'} — 이 기기를 로그아웃 처리합니다.` : '',
+  pendingRevoke.value ? `${formatUserAgent(pendingRevoke.value.userAgent)} — 이 기기를 로그아웃 처리합니다.` : '',
 )
 function askRevoke(s: SessionView) { pendingRevoke.value = s; confirmOpen.value = true }
 async function doRevoke() {
@@ -100,6 +105,10 @@ function loadMoreActivity() { activitySize.value += 50 }
     </WPageHeader>
 
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="110">
+      <!-- 축약 라벨을 보여주되 UA 원문은 툴팁으로 남긴다(정보 손실 방지). -->
+      <template #cell-device="{ row }">
+        <span :title="(row as SessionRow).deviceTitle || undefined">{{ (row as SessionRow).device }}</span>
+      </template>
       <template #actions="{ row }">
         <button
           v-if="!(row as SessionRow)._src.current && (row as SessionRow)._src.active"
