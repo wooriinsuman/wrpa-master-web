@@ -55,6 +55,12 @@ describe('useSessions', () => {
     expect(apiMock).toHaveBeenCalledWith('/users/u-1/sessions/fam-456/revoke', { method: 'POST' })
   })
 
+  it('revokeAllForUser(id) posts to /users/{id}/sessions/revoke-all', async () => {
+    apiMock.mockResolvedValue({})
+    await useSessions().revokeAllForUser('u-1')
+    expect(apiMock).toHaveBeenCalledWith('/users/u-1/sessions/revoke-all', { method: 'POST' })
+  })
+
   it('activity() calls GET /auth/activity with default page/size and unwraps values', async () => {
     apiMock.mockResolvedValue({ values: [{ action: 'login', createdAt: 1 }] })
     const result = await useSessions().activity()
