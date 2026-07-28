@@ -1,4 +1,5 @@
 import { toApiErrorResponse } from '../../utils/proxy-error'
+import { clientContextHeaders } from '../../utils/proxy-helpers'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -6,7 +7,7 @@ export default defineEventHandler(async (event) => {
   try {
     const res = await $fetch<{ accessToken: string; refreshToken: string }>(
       `${config.rpaApiUrl}/api/auth/login`,
-      { method: 'POST', body },
+      { method: 'POST', body, headers: clientContextHeaders(event) },
     )
     setCookie(event, 'access_token', res.accessToken, {
       httpOnly: true, secure: !import.meta.dev, sameSite: 'lax', path: '/',

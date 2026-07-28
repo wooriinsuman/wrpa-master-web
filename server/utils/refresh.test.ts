@@ -25,4 +25,14 @@ describe('refreshTokens single-flight', () => {
     fetchMock.mockRejectedValue(new Error('401'))
     expect(await refreshTokens('http://b', 'r1')).toBeNull()
   })
+
+  it('forwards client context headers to the backend', async () => {
+    fetchMock.mockResolvedValue({ accessToken: 'a2', refreshToken: 'r2' })
+    await refreshTokens('http://b', 'r1', { 'X-Real-IP': '203.0.113.9', 'User-Agent': 'UA' })
+    expect(fetchMock).toHaveBeenCalledWith('http://b/api/auth/refresh', {
+      method: 'POST',
+      body: { refreshToken: 'r1' },
+      headers: { 'X-Real-IP': '203.0.113.9', 'User-Agent': 'UA' },
+    })
+  })
 })
