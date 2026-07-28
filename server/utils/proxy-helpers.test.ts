@@ -50,4 +50,28 @@ describe('clientContextHeaders', () => {
   it('omits keys with no value rather than sending empty strings', () => {
     expect(clientContextHeaders(fakeEvent({}))).toEqual({})
   })
+
+  // I1-a: 엣지가 아직 X-Real-IP를 덮어쓰지 않은 상태(HAProxy 반영 전)에서도 클라이언트가
+  // 보낸 임의의 값이 그대로 채택되지 않도록, 단일 유효 IP로 파싱될 때만 통과시킨다.
+  it('passes through a valid IPv4 X-Real-IP', () => {
+    const h = clientContextHeaders(fakeEvent({ 'x-real-ip': '203.0.113.9' }, '10.0.0.1'))
+    expect(h['X-Real-IP']).toBe('203.0.113.9')
+  })
+
+  it('passes through a valid IPv6 X-Real-IP', () => {
+    const h = clientContextHeaders(fakeEvent({ 'x-real-ip': '2001:db8::1' }, '10.0.0.1'))
+    expect(h['X-Real-IP']).toBe('2001:db8::1')
+  })
+
+  it('falls back to the socket address when X-Real-IP is not a valid IP', () => {
+    const h = clientContextHeaders(fakeEvent({ 'x-real-ip': 'not-an-ip' }, '10.0.0.1'))
+    expect(h['X-Real-IP']).toBe('10.0.0.1')
+  })
+
+  // Node의 http는 같은 이름의 헤더가 여러 줄 오면 ", "로 합쳐서 넘긴다 — 이 합쳐진
+  // 문자열은 isIP가 단일 IP로 인식하지 못하므로 폴백된다(중복 헤더 위조 방지).
+  it('falls back to the socket address when X-Real-IP is a comma-joined duplicate header value', () => {
+    const h = clientContextHeaders(fakeEvent({ 'x-real-ip': '203.0.113.9, 198.51.100.7' }, '10.0.0.1'))
+    expect(h['X-Real-IP']).toBe('10.0.0.1')
+  })
 })

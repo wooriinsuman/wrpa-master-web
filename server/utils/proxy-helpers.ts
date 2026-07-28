@@ -1,4 +1,5 @@
 import { getHeader, type H3Event } from 'h3'
+import { isIP } from 'node:net'
 
 export function buildProxyHeaders(token: string | undefined, uploadToken?: string): Record<string, string> {
   const h: Record<string, string> = {}
@@ -25,9 +26,17 @@ const UA_MAX = 256
 //
 // h3 의 getRequestIP() 는 쓰지 않는다 — 버전에 따라 XFF 의 첫 항목을 고르는데,
 // 그러면 클라이언트가 보낸 위조 XFF 가 그대로 채택된다.
+//
+// 인바운드 X-Real-IP 는 단일 유효 IP로 파싱될 때만 그대로 전달한다 — HAProxy가 이
+// 헤더를 덮어쓰기로 되어 있지만, 그 반영은 배포와 별개의 수동 절차라 지금 이 순간에도
+// 엣지가 아직 덮어쓰지 않았을 수 있다. 그 경우 브라우저가 보낸 값이 그대로 살아남으면
+// 안 되므로, isIP()로 검증해 파싱 실패 시 소켓 주소로 폴백한다. 이는 중복
+// X-Real-IP 헤더 위조(Node가 여러 줄을 ", "로 합쳐 isIP가 거부)도 함께 막는다.
 export function clientContextHeaders(event: H3Event): Record<string, string> {
   const h: Record<string, string> = {}
-  const ip = getHeader(event, 'x-real-ip')?.trim() || event.node.req.socket?.remoteAddress
+  const rawIP = getHeader(event, 'x-real-ip')?.trim()
+  const validIP = rawIP && isIP(rawIP) !== 0 ? rawIP : undefined
+  const ip = validIP || event.node.req.socket?.remoteAddress
   if (ip) h['X-Real-IP'] = ip
   const ua = getHeader(event, 'user-agent')?.trim()
   if (ua) h['User-Agent'] = ua.slice(0, UA_MAX)
