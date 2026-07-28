@@ -9,6 +9,9 @@ export interface Column {
   kind?: 'text' | 'mono' | 'muted' | 'status' | 'chips' | 'wrap' | 'tags'
   // Relative width multiplier (flex-grow). Default 1; e.g. 2 = twice the share.
   weight?: number
+  // 잘림 금지: 셀 폭보다 긴 값을 말줄임하지 않고 줄바꿈해 전부 보여준다.
+  // kind가 정한 글꼴·정렬은 그대로 두고 줄바꿈 여부만 바꾸므로 어떤 kind와도 함께 쓸 수 있다.
+  wrap?: boolean
   // Header click sorting is on by default; set false to opt a column out.
   sortable?: boolean
   // Optional custom sort ranking for categorical columns (e.g. 생/손/보증 order).
@@ -139,7 +142,7 @@ function toggleAll() {
           <input type="checkbox" :checked="selected.includes(row.id)" @change="toggleOne(row.id)" />
         </div>
         <div v-if="indexColumn" class="dt-td dt-td--idx">{{ i + 1 }}</div>
-        <div v-for="c in columns" :key="c.key" class="dt-td" :class="`dt-td--${c.kind ?? 'text'}`" :style="c.weight ? { flexGrow: c.weight } : undefined">
+        <div v-for="c in columns" :key="c.key" class="dt-td" :class="[`dt-td--${c.kind ?? 'text'}`, { 'dt-td--wrapped': c.wrap }]" :style="c.weight ? { flexGrow: c.weight } : undefined">
           <slot :name="`cell-${c.key}`" :row="row" :value="row[c.key]">
             <template v-if="c.kind === 'status'">
               <WStatusBadge v-if="isStatusCell(row[c.key])" :label="row[c.key].label" :kind="row[c.key].kind" />
@@ -194,6 +197,9 @@ function toggleAll() {
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }
 /* wrap: 내용을 자르지 않고 줄바꿈해 전체를 보여준다(예: 작업 파일 목록). */
 .dt-td--wrap { white-space: normal; overflow: visible; text-overflow: clip; text-align: left; line-height: 1.5; word-break: break-word; }
+/* wrap 옵션(kind 무관): 말줄임 대신 줄바꿈. 정렬·글꼴은 kind가 정한 값을 유지한다.
+   단어 하나가 셀보다 길면(긴 호스트명 등) 단어 중간에서라도 끊어 잘리지 않게 한다. */
+.dt-td--wrapped { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.45; overflow-wrap: anywhere; }
 /* tags: 다중 값을 개별 태그로. 왼쪽 정렬·줄바꿈·전체 표시(가독성). */
 .dt-td--tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start; align-items: flex-start; white-space: normal; overflow: visible; text-overflow: clip; text-align: left; }
 .dt-tag { display: inline-flex; padding: 3px 8px; border-radius: 7px; background: var(--th); border: 1px solid var(--line); font-size: 11.5px; color: var(--ink); white-space: normal; word-break: break-word; line-height: 1.35; }

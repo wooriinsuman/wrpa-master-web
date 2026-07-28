@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
@@ -48,14 +48,24 @@ function hidCell(health: number, total: number): StatusCell {
   return { label: total > 1 ? `이상 ${health}/${total}` : '끊김', kind: 'fail' }
 }
 
-// 상대시간·라이브니스 기준 시각. 화면을 열어둔 채로도 시간이 흐르며 판정이 갱신되도록
-// 클라이언트에서 주기적으로 갱신한다(하트비트 주기와 맞춰 5초). SSR/초기값은 setup 시점.
+// 상대시간·라이브니스 기준 시각. SSR/초기값은 setup 시점.
 const nowSec = ref(Math.floor((globalThis.Date?.now?.() ?? 0) / 1000))
-let clock: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  clock = setInterval(() => { nowSec.value = Math.floor((globalThis.Date?.now?.() ?? 0) / 1000) }, 5000)
-})
-onUnmounted(() => { if (clock) clearInterval(clock) })
+
+// 주기적 폴링은 하지 않는다 — 목록은 사용자가 새로고침할 때만 다시 조회한다.
+// 대신 비교의 양쪽(lastConnectedAt·now)이 항상 같은 시점이어야 한다: now만 따로 흐르면
+// 살아있는 워커도 초가 계속 늘어나 결국 오프라인으로 보인다. 그래서 nowSec은 조회할 때만
+// 갱신하고, 조회 사이에는 화면 전체가 그 시점의 스냅샷으로 고정된다.
+function stampNow() {
+  nowSec.value = Math.floor((globalThis.Date?.now?.() ?? 0) / 1000)
+}
+// SSR로 그려진 시각 대신 클라이언트 시계로 한 번 맞춘다.
+onMounted(stampNow)
+
+// 목록 재조회 — 항상 nowSec과 함께 갱신되도록 refresh를 직접 부르지 말고 이걸 쓴다.
+async function reload() {
+  await refresh()
+  stampNow()
+}
 
 const search = ref('')
 const rows = computed<WorkerRow[]>(() => {
@@ -78,7 +88,8 @@ const rows = computed<WorkerRow[]>(() => {
       insurersTitle: insurerNames.join(', '),
       host: w.host ?? '—',
       // 호스트명/IP를 한 칸에. 하나만 있으면 그것만, 둘 다 없으면 '—'.
-      hostIp: [w.host, w.ip].filter(Boolean).join('/') || '—',
+      // 구분자 앞뒤 공백은 줄바꿈 지점 — 칸이 좁으면 호스트/IP가 두 줄로 나뉘어 잘리지 않는다.
+      hostIp: [w.host, w.ip].filter(Boolean).join(' / ') || '—',
       hid: hidCell(w.hidHealthCount, w.hidTotalCount),
       lastSeen: formatSince(lastSec, nowSec.value),
       // 상태는 워커가 보고한 state 대신 last-seen 파생 생사(온라인/지연/오프라인).
@@ -102,7 +113,8 @@ const columns: Column[] = [
   { key: 'type', label: '유형', kind: 'text' },
   { key: 'companies', label: '회사', kind: 'chips', sortable: false },
   { key: 'insurers', label: '보험사', kind: 'chips', sortable: false, weight: 2.4 },
-  { key: 'hostIp', label: '호스트/IP', kind: 'muted' },
+  // 호스트명+IP는 다른 칸보다 길다 — 폭을 더 주고, 그래도 넘치면 줄바꿈(잘림 금지).
+  { key: 'hostIp', label: '호스트/IP', kind: 'muted', weight: 1.8, wrap: true },
   { key: 'hid', label: 'HID', kind: 'status' },
   { key: 'lastSeen', label: '최근 접속', kind: 'text', sortable: false },
   { key: 'status', label: '상태', kind: 'status' },
@@ -143,7 +155,7 @@ async function save() {
   // 배정 저장 성공 — 목록 갱신 실패는 저장 결과와 무관하므로 삼킨다(saveCreate와 동일).
   crudOpen.value = false
   push('배정이 저장되었습니다.', 'success')
-  try { await refresh() } catch { /* 목록 갱신 실패는 무시(다음 상호작용에 갱신됨) */ }
+  try { await reload() } catch { /* 목록 갱신 실패는 무시(다음 상호작용에 갱신됨) */ }
 }
 
 // --- 삭제 (확인 게이트) ---
@@ -158,7 +170,7 @@ async function confirmRemove() {
   if (!row) return
   try {
     await workers.remove(row.id)
-    await refresh()
+    await reload()
     push('삭제되었습니다.', 'success')
   } catch {
     push('삭제에 실패했습니다.', 'error')
@@ -180,7 +192,7 @@ async function togglePause(row: WorkerRow) {
   try {
     if (row.paused) await workers.resume(row.id)
     else await workers.pause(row.id)
-    await refresh()
+    await reload()
     push(row.paused ? '작업을 재개했습니다.' : '작업을 일시중지했습니다.', 'success')
   } catch (e) {
     push(extractApiError(e, '상태 변경에 실패했습니다.'), 'error')
@@ -233,7 +245,7 @@ async function saveCreate() {
   keyCreateNoCompany.value = !hadCompanies
   revealKey(created.apiKey)
   push('워커가 생성되었습니다.', 'success')
-  try { await refresh() } catch { /* 목록 갱신 실패는 무시 */ }
+  try { await reload() } catch { /* 목록 갱신 실패는 무시 */ }
   creating.value = false
 }
 
@@ -259,7 +271,7 @@ async function copyKey() {
 <template>
   <section class="panel">
     <WPageHeader title="워커" desc="RPA 워커 호스트 · 미리 생성해 키를 발급하고 배정(회사·보험사)을 관리합니다"
-      add-label="+ 워커 등록" v-model:search="search" @add="openCreate" @refresh="refresh" />
+      add-label="+ 워커 등록" v-model:search="search" @add="openCreate" @refresh="reload" />
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" index-column :actions-width="288">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="togglePause(row as WorkerRow)">{{ (row as WorkerRow).paused ? '재개' : '일시중지' }}</button>
