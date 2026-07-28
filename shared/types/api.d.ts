@@ -1082,7 +1082,7 @@ export interface components {
              *     ]
              */
             runTimes?: string[];
-            /** @description 0=일 … 6=토, 비우면 전 영업일 */
+            /** @description 0=일 … 6=토, 비우면 요일 제한 없음(주말·공휴일 포함 모든 날짜) */
             weekdays?: number[];
             /** @example 0 */
             closingMonthOffset?: number;
@@ -1107,7 +1107,7 @@ export interface components {
              *     ]
              */
             runTimes?: string[];
-            /** @description 0=일 … 6=토, 비우면 전 영업일 */
+            /** @description 0=일 … 6=토, 비우면 요일 제한 없음(주말·공휴일 포함 모든 날짜) */
             weekdays?: number[];
             closingMonthOffset?: number;
             priority?: number;
