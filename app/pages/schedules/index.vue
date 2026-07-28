@@ -135,11 +135,31 @@ const availableDataTypes = computed(() => {
   )
   return sortByDataTypeOrder(dataTypeList.value.filter(d => codes.has(d.code)))
 })
-const availableWorkFiles = computed(() =>
-  selectedDataType.value
-    ? workFiles.value.filter(w => w.insuranceCompanyCode === selectedInsurerCode.value && w.dataType === selectedDataType.value)
-    : [],
-)
+// 신계약·계속분처럼 여러 데이터타입 파일을 한 일정에 담고 싶을 때 쓰는 가상 선택지.
+// 마스터(데이터 유형)에는 없는 UI 전용 키 — 저장은 파일별 dataType 그대로이고,
+// 서버가 dataType 그룹마다 별개 work를 만든다(scheduler.GroupByDataType).
+const ALL_DATA_TYPES = '__all__'
+
+const availableWorkFiles = computed(() => {
+  if (!selectedDataType.value) return []
+  const mine = workFiles.value.filter(w => w.insuranceCompanyCode === selectedInsurerCode.value)
+  if (selectedDataType.value === ALL_DATA_TYPES) return mine
+  return mine.filter(w => w.dataType === selectedDataType.value)
+})
+
+// 데이터타입별 묶음 — '전체' 선택 시 어떤 유형의 파일인지 구분되게 표시한다.
+const workFileGroups = computed(() => {
+  const order = sortByDataTypeOrder(availableDataTypes.value).map(d => d.code)
+  const byCode = new Map<string, { code: string; name: string; files: typeof workFiles.value }>()
+  for (const w of availableWorkFiles.value) {
+    const code = w.dataType ?? ''
+    if (!byCode.has(code)) byCode.set(code, { code, name: dataTypeName.value.get(code) ?? code, files: [] })
+    byCode.get(code)!.files.push(w)
+  }
+  return [...byCode.values()].sort((a, b) => order.indexOf(a.code) - order.indexOf(b.code))
+})
+
+function selectAllWorkFiles() { form.value.workFileIds = availableWorkFiles.value.map(w => w.id) }
 
 // @change는 사용자 조작 시에만 발생 → 수정 진입(프로그램적 폼 로드) 때는 하위 선택이 유지된다.
 function onCompanyChange() { form.value.accountId = ''; selectedDataType.value = ''; form.value.workFileIds = [] }
@@ -154,12 +174,30 @@ function toggleWorkFile(id: string) {
 function openCreate() { selectedDataType.value = ''; crud.openCreate() }
 function openEdit(row: JobRow) {
   crud.openEdit(row)
-  const first = form.value.workFileIds[0]
-  selectedDataType.value = workFiles.value.find(w => w.id === first)?.dataType ?? ''
+  // 파일들이 한 dataType이면 그 유형, 두 종류 이상이면 '전체'로 복원한다.
+  const codes = new Set(form.value.workFileIds.map(id => workFiles.value.find(w => w.id === id)?.dataType).filter(Boolean))
+  selectedDataType.value = codes.size > 1 ? ALL_DATA_TYPES : ([...codes][0] ?? '')
 }
 
 // 초 입력값을 분·초로 환산해 옆에 보조 표기(초 단위 감 잡기 어려워서).
 const timeoutHint = computed(() => fmtDuration(Number(form.value.timeoutSec)))
+
+// --- 생성 기간(시작·종료 경계) 요약 ---
+// 경계는 (달력일|영업일) × (월초|월말) 조합이라 값만 보고는 읽기 어렵다 → 한 줄로 풀어 쓴다.
+// 백엔드 scheduler.InWindow와 동일한 해석: 월말 기준은 1=말일, 종료일 비움=말일까지.
+function boundLabel(raw: string, businessDay: boolean, fromMonthEnd: boolean, fallback: string): string {
+  const n = Number(raw.trim())
+  if (!raw.trim() || !Number.isFinite(n) || n < 1) return fallback
+  if (!fromMonthEnd) return businessDay ? `${n}영업일` : `${n}일`
+  if (n === 1) return businessDay ? '마지막 영업일' : '말일'
+  return businessDay ? `마지막 영업일에서 ${n - 1}영업일 전` : `말일에서 ${n - 1}일 전`
+}
+const windowSummary = computed(() => {
+  const f = form.value
+  const start = boundLabel(f.startDay, f.startBusinessDay, f.fromMonthEnd, f.startBusinessDay ? '1영업일' : '1일')
+  const end = boundLabel(f.endDay, f.endBusinessDay, f.fromMonthEnd, f.endBusinessDay ? '마지막 영업일' : '말일')
+  return `매월 ${start}부터 ${end}까지` + (f.excludeWeekendHoliday ? ' · 주말·공휴일 제외' : '')
+})
 
 async function runNow(row: JobRow) {
   try {
@@ -295,16 +333,46 @@ async function submitCopy() {
       <label class="fld"><span>데이터 타입 <span class="req">*</span></span>
         <select v-model="selectedDataType" :disabled="!form.accountId" @change="onDataTypeChange">
           <option value="" disabled>{{ form.accountId ? '— 데이터 타입 선택 —' : '계정을 먼저 선택' }}</option>
+          <option v-if="availableDataTypes.length > 1" :value="ALL_DATA_TYPES">
+            전체 ({{ availableDataTypes.map(d => d.name).join(' + ') }})
+          </option>
           <option v-for="d in availableDataTypes" :key="d.code" :value="d.code">{{ d.name }}</option>
         </select>
       </label>
-      <div class="fld fld--full"><span>작업 파일 <span class="req">*</span> <small class="hint">보험사·데이터타입 기준</small></span>
-        <div v-if="!selectedDataType" class="chips-empty">데이터 타입을 먼저 선택하세요</div>
-        <div v-else-if="!availableWorkFiles.length" class="chips-empty">해당 조건의 작업 파일이 없습니다</div>
-        <div v-else class="chips">
-          <button v-for="w in availableWorkFiles" :key="w.id" type="button" class="chip"
-            :class="{ 'chip--on': form.workFileIds.includes(w.id) }" @click="toggleWorkFile(w.id)">{{ w.name }}</button>
+      <div class="fld fld--full">
+        <span>작업 파일 <span class="req">*</span> <small class="hint">보험사·데이터타입 기준</small>
+          <small v-if="form.workFileIds.length" class="wf-count">{{ form.workFileIds.length }}개 선택</small>
+        </span>
+        <!-- 빈 상태도 안내가 되도록: 다음에 할 일과 이동 경로를 함께 보여준다. -->
+        <div v-if="!selectedDataType" class="wf-empty">
+          <span class="wf-empty-mark">1</span>
+          <div class="wf-empty-txt">
+            <strong>{{ form.accountId ? '데이터 타입을 먼저 선택하세요' : '회사·계정을 먼저 선택하세요' }}</strong>
+            <span>선택한 계정의 보험사에 등록된 작업 파일만 나타납니다.</span>
+          </div>
         </div>
+        <div v-else-if="!availableWorkFiles.length" class="wf-empty">
+          <span class="wf-empty-mark">0</span>
+          <div class="wf-empty-txt">
+            <strong>이 조건으로 등록된 작업 파일이 없습니다</strong>
+            <span>보험사·데이터 타입에 맞는 파일을 먼저 등록해야 일정을 만들 수 있습니다.</span>
+          </div>
+          <NuxtLink class="wf-empty-cta" to="/workfiles">작업 파일 등록 →</NuxtLink>
+        </div>
+        <template v-else>
+          <div class="wf-bar">
+            <button type="button" class="wf-act" @click="selectAllWorkFiles">전체 선택</button>
+            <button type="button" class="wf-act" :disabled="!form.workFileIds.length"
+              @click="form.workFileIds = []">선택 해제</button>
+          </div>
+          <div v-for="g in workFileGroups" :key="g.code" class="wf-group">
+            <div v-if="workFileGroups.length > 1" class="wf-group-lab">{{ g.name }}</div>
+            <div class="chips">
+              <button v-for="w in g.files" :key="w.id" type="button" class="chip"
+                :class="{ 'chip--on': form.workFileIds.includes(w.id) }" @click="toggleWorkFile(w.id)">{{ w.name }}</button>
+            </div>
+          </div>
+        </template>
       </div>
       <div class="fld">
         <span>실행시각 <small class="hint">하루 여러 번 가능</small></span>
@@ -317,8 +385,9 @@ async function submitCopy() {
           <button type="button" class="rt-add" @click="form.runTimes.push('')">+ 시각 추가</button>
         </div>
       </div>
+      <!-- 비워두면 요일 제한 없음 — 휴일 배제는 '주말·공휴일 제외'와 영업일 기준이 담당한다. -->
       <div class="fld">
-        <span>요일 <small class="hint">미선택 = 전 영업일</small></span>
+        <span title="요일을 하나도 고르지 않으면 요일 제한이 없습니다 — 주말·공휴일을 포함한 모든 날짜가 대상이며, 휴일 배제는 '주말·공휴일 제외'와 영업일 기준이 담당합니다.">요일 <small class="hint">미선택 = 제한 없음</small></span>
         <div class="wk-row">
           <button v-for="(w, d) in WEEKDAYS" :key="d" type="button"
             class="wk" :class="{ on: form.weekdays.includes(d) }"
@@ -329,9 +398,39 @@ async function submitCopy() {
               : form.weekdays.push(d)">{{ w }}</button>
         </div>
       </div>
-      <label class="fld"><span>시작일</span><input v-model="form.startDay" inputmode="numeric" /></label>
-      <label class="fld"><span>종료일 <small class="hint">비우면 시작일만</small></span><input v-model="form.endDay" inputmode="numeric" placeholder="끝까지" /></label>
-      <label class="fld fld--full fld--row"><input type="checkbox" v-model="form.fromMonthEnd" /><span>월말 기준 <small class="hint">시작·종료일을 말일에서부터 셈 (1=말일, 영업일 기준과 조합 가능)</small></span></label>
+      <!-- 생성 기간: 시작·종료일과 그 해석 기준(달력일/영업일)을 한 덩어리로 묶는다.
+           떨어져 있던 '영업일 시작/종료 기준' 체크박스를 각 입력 옆 토글로 흡수. -->
+      <div class="fld fld--full">
+        <span>생성 기간 <small class="hint">매월 이 구간의 날짜에만 작업이 생성됩니다</small></span>
+        <div class="win">
+          <div class="win-row">
+            <span class="win-lab">시작</span>
+            <input v-model="form.startDay" inputmode="numeric" class="win-num" placeholder="1" />
+            <div class="seg">
+              <button type="button" :class="{ on: !form.startBusinessDay }" @click="form.startBusinessDay = false">달력일</button>
+              <button type="button" :class="{ on: form.startBusinessDay }" @click="form.startBusinessDay = true">영업일</button>
+            </div>
+            <span class="win-suffix">부터</span>
+          </div>
+          <div class="win-row">
+            <span class="win-lab">종료</span>
+            <input v-model="form.endDay" inputmode="numeric" class="win-num" placeholder="말일까지" />
+            <div class="seg">
+              <button type="button" :class="{ on: !form.endBusinessDay }" @click="form.endBusinessDay = false">달력일</button>
+              <button type="button" :class="{ on: form.endBusinessDay }" @click="form.endBusinessDay = true">영업일</button>
+            </div>
+            <span class="win-suffix">까지</span>
+          </div>
+          <!-- 날짜를 걸러내는 옵션은 경계와 같은 박스에 둔다 — 요약 문장이 셋을 함께 설명한다. -->
+          <div class="win-opts">
+            <label class="win-me"><input type="checkbox" v-model="form.fromMonthEnd" />
+              <span>월말 기준으로 세기 <small class="hint">1=말일 (예: 시작 1 → 말일부터)</small></span></label>
+            <label class="win-me"><input type="checkbox" v-model="form.excludeWeekendHoliday" />
+              <span>주말·공휴일 제외</span></label>
+          </div>
+          <p class="win-sum">{{ windowSummary }}</p>
+        </div>
+      </div>
       <label class="fld"><span>우선순위</span><input v-model="form.priority" inputmode="numeric" /></label>
       <label class="fld"><span>타임아웃(초)</span>
         <div class="to-row">
@@ -340,9 +439,6 @@ async function submitCopy() {
         </div>
       </label>
       <label class="fld fld--row"><input type="checkbox" v-model="form.locked" /><span>잠금</span></label>
-      <label class="fld fld--row"><input type="checkbox" v-model="form.excludeWeekendHoliday" /><span>주말·공휴일 제외</span></label>
-      <label class="fld fld--row"><input type="checkbox" v-model="form.startBusinessDay" /><span>영업일 시작 기준</span></label>
-      <label class="fld fld--row"><input type="checkbox" v-model="form.endBusinessDay" /><span>영업일 종료 기준</span></label>
       <label class="fld fld--full"><span>비고</span><textarea v-model="form.note" rows="3" placeholder="메모"></textarea></label>
       </div>
     </template>
@@ -406,6 +502,36 @@ async function submitCopy() {
 .me-toggle input { width: auto; }
 .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
 .chips-empty { font-size: 12px; color: var(--ink-2); padding: 4px 0; }
+/* 작업 파일 영역 — 빈 상태를 안내 카드로, 목록은 데이터타입별 묶음으로. */
+.wf-count { font-weight: 600; color: var(--run); font-size: 11px; margin-left: 6px; }
+.wf-empty { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 10px; background: var(--th); }
+.wf-empty-mark { flex: none; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
+.wf-empty-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wf-empty-txt strong { font-size: 13px; font-weight: 600; color: var(--ink); }
+.wf-empty-txt span { font-size: 11.5px; color: var(--ink-2); }
+.wf-empty-cta { margin-left: auto; flex: none; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); font-size: 12px; text-decoration: none; white-space: nowrap; transition: all .12s ease; }
+.wf-empty-cta:hover { border-color: var(--run); color: var(--run); }
+.wf-bar { display: flex; gap: 6px; margin-bottom: 8px; }
+.wf-act { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); font-size: 11.5px; cursor: pointer; transition: all .12s ease; }
+.wf-act:hover:not(:disabled) { border-color: var(--run); color: var(--run); }
+.wf-act:disabled { opacity: .4; cursor: not-allowed; }
+.wf-group + .wf-group { margin-top: 10px; }
+.wf-group-lab { font-size: 11px; font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
+/* 생성 기간 — 시작·종료 입력과 달력일/영업일 토글을 한 블록으로. */
+.win { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--th); }
+.win-row { display: flex; align-items: center; gap: 8px; }
+.win-lab { flex: none; width: 30px; font-size: 12px; color: var(--ink-2); }
+.win-num { flex: none; width: 96px; }
+.win-suffix { flex: none; font-size: 12px; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.seg button { padding: 6px 12px; border: none; background: transparent; color: var(--ink-2); font-family: var(--font-sans); font-size: 12px; cursor: pointer; transition: all .12s ease; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover { color: var(--run); }
+.seg button.on { background: var(--nav-active); color: var(--run); font-weight: 600; }
+.win-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
+.win-me { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+.win-me input { width: auto; }
+.win-sum { margin: 2px 0 0; font-size: 12px; color: var(--run); font-weight: 600; }
 .chip { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); font-size: 12.5px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: all .12s ease; }
 .chip:hover { border-color: var(--run); color: var(--ink); }
 .chip--on { background: var(--nav-active); border-color: var(--run); color: var(--run); font-weight: 600; }
