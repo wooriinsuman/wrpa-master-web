@@ -14,8 +14,14 @@ describe('dashboardState', () => {
     expect(workStateKind('started')).toBe('run')
     expect(workStateKind('done')).toBe('done')
     expect(workStateKind('pending')).toBe('idle')
-    expect(workStateKind('cancel')).toBe('fail')
     expect(workStateKind('failed')).toBe('fail')
+  })
+  // 대시보드의 "실패" 타일은 kind==='fail'을 세고, 작업 현황 요약은 백엔드의
+  // failed/cancel을 따로 센다. cancel을 fail로 접으면 같은 낱말이 두 화면에서
+  // 다른 수를 가리킨다 — 취소는 실패가 아니다.
+  it('취소는 실패로 세지 않는다 (대시보드 ↔ 작업 현황 요약 일치)', () => {
+    expect(workStateKind('cancel')).not.toBe('fail')
+    expect(workStateKind('cancel')).toBe('idle')
   })
   it('formats heartbeat age', () => {
     expect(formatAge(undefined, 1000)).toBe('—')

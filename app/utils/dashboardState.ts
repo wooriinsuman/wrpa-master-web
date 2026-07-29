@@ -12,8 +12,14 @@ export function workerStateKind(state: string): StatusKind {
 
 // work.State* 전부를 덮는다 — 'failed'가 빠져 있으면 재시도 예산을 소진해 끝난
 // 작업이 대시보드에서 idle(회색)로 보이고 실패 카운트에서도 빠진다.
+//
+// cancel은 fail이 아니다. 대시보드의 "실패" 타일은 kind==='fail'을 세는데,
+// 작업 현황 요약 스트립은 백엔드 /works/summary의 failed·cancel을 따로 센다 —
+// cancel을 fail로 접으면 같은 "실패"라는 말이 화면마다 다른 수를 가리킨다.
+// 기준은 백엔드(운영자가 취소한 작업은 실패가 아니다)에 맞추고, 취소는 중립
+// (idle)로 표시한다. 라벨('취소')이 대기와 구분해 준다.
 const WORK_KIND: Record<string, StatusKind> = {
-  started: 'run', done: 'done', pending: 'idle', cancel: 'fail', failed: 'fail',
+  started: 'run', done: 'done', pending: 'idle', cancel: 'idle', failed: 'fail',
 }
 export function workStateKind(state: string): StatusKind {
   return WORK_KIND[state?.toLowerCase()] ?? 'idle'
