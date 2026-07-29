@@ -23,6 +23,17 @@ export interface WorkListParams {
 // 남는다. 목록에서 state와 size를 빼 컴파일 단계에서 막는다.
 export type WorkSummaryParams = Omit<WorkListParams, 'state' | 'size'>
 
+// 요약 파라미터는 목록 파라미터에서 "빼서" 만든다 — 손으로 다시 나열하면 필터가
+// 하나 늘 때 목록만 좁혀지고 요약은 예전 모집단을 계속 세어, 한 화면의 두 숫자가
+// 서로 다른 것을 세게 된다. 빼는 두 키에는 각각 이유가 있다:
+//   state — 상태 분포가 요약의 결과물 자체다(백엔드가 파싱조차 하지 않는다).
+//   size  — 요약에는 페이징이 없다. 그날 전량을 센다.
+// 나머지는 이름을 몰라도 그대로 따라가므로, 새 필터는 목록 쪽에만 추가하면 된다.
+export function toSummaryParams(p: WorkListParams): WorkSummaryParams {
+  const { state: _state, size: _size, ...rest } = p
+  return rest
+}
+
 // 목록 상한. 백엔드 listPaging은 기본 200건, [1,1000]으로 클램프한다 — 명시하지
 // 않으면 200건에서 조용히 잘리는데 요약(/works/summary)은 그날 전량을 세므로
 // 표와 요약이 서로 다른 모집단을 말하게 된다. 상한에 닿았는지는 호출부가

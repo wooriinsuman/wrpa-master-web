@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
-import { WORK_LIST_LIMIT, type WorkListParams, type WorkSummaryParams } from '~/composables/useWorks'
+import { WORK_LIST_LIMIT, toSummaryParams, type WorkListParams, type WorkSummaryParams } from '~/composables/useWorks'
 import { isStatusCell, type StatusCell } from '~/utils/status'
 import { workStateKind } from '~/utils/dashboardState'
 import { waitReasonCell } from '~/utils/waitReason'
@@ -53,20 +53,19 @@ function today(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-const date = ref(today())
-const state = ref('')
-const createType = ref('')
-const company = ref('')
-const workerId = ref('')
+// 서버로 나가는 필터는 전부 여기 한 곳에 모은다 — 목록과 요약이 같은 출처에서
+// 파생돼야 둘이 서로 다른 모집단을 세는 일이 없다. search는 일부러 빼 뒀다:
+// 클라이언트에서 이미 받은 행만 거르는 값이라 서버로 보내면 안 된다.
+const filters = ref({
+  date: today(),
+  state: '',
+  createType: '',
+  company: '',
+  workerId: '',
+})
 const search = ref('')
 
-const params = computed<WorkListParams>(() => ({
-  date: date.value,
-  state: state.value,
-  createType: createType.value,
-  company: company.value,
-  workerId: workerId.value,
-}))
+const params = computed<WorkListParams>(() => ({ ...filters.value }))
 
 const { data, pending, refresh } = await useAsyncData(
   'works', () => works.list({ ...params.value, size: WORK_LIST_LIMIT }), { watch: [params] },
@@ -75,15 +74,16 @@ const { data, pending, refresh } = await useAsyncData(
 // 알리지 않으면 "대기 480"이라 써 놓고 표에는 1000행만 그리는 화면이 된다.
 const truncated = computed(() => (data.value?.length ?? 0) >= WORK_LIST_LIMIT)
 // 요약은 상태 분포 자체라 state를 아예 받지 않는다(WorkSummaryParams가 타입으로
-// 막는다) — 나머지 필터만 그대로 넘긴다.
-const summaryParams = computed<WorkSummaryParams>(() => ({
-  date: date.value,
-  createType: createType.value,
-  company: company.value,
-  workerId: workerId.value,
-}))
+// 막는다). 목록 파라미터를 손으로 베껴 쓰지 않고 파생시키는 이유: 베껴 두면
+// 필터가 하나 늘 때 목록만 좁혀지고 요약은 예전 모집단을 계속 세어, 한 화면의
+// 두 숫자가 서로 다른 것을 세는 상태로 조용히 되돌아간다.
+const summaryParams = computed<WorkSummaryParams>(() => toSummaryParams(params.value))
 const { data: sum, refresh: refreshSummary } = await useAsyncData(
-  'works-summary', () => works.summary(summaryParams.value), { watch: [summaryParams] },
+  'works-summary', () => works.summary(summaryParams.value),
+  // 정체성이 아니라 내용으로 감시한다. 파생 계산은 params가 바뀔 때마다 새 객체를
+  // 만들므로, 그대로 watch하면 요약이 무시하는 state만 건드려도 요약을 다시 읽게
+  // 된다(같은 답을 받으려고 왕복 한 번).
+  { watch: [() => JSON.stringify(summaryParams.value)] },
 )
 const { data: workerList } = await useAsyncData(
   'works-workers', () => authStore.isSystem ? workers.list() : Promise.resolve([]),
@@ -172,15 +172,23 @@ const rows = computed<WorkRow[]>(() => {
   }))
   const q = search.value.trim().toLowerCase()
   if (!q) return list
-  return list.filter(r => [r.company, r.account, r.tasks, r.category, r.status.label]
-    .some(x => String(x).toLowerCase().includes(q)))
+  // 화면에 이름이 보인다고 검색까지 이름 전용이 되면 안 된다 — 운영자는 로그에서
+  // 복사한 36자 uuid를 그대로 붙여 넣어 행을 찾는다. 표시값(계정·워커 이름)과
+  // 원본 id를 모두 대상에 넣어 사람 이름과 id 둘 다로 찾히게 한다.
+  return list.filter(r => [
+    r.company, r.account, r.accountId,
+    isStatusCell(r.worker) ? r.worker.label : r.worker, r.workerId,
+    r.tasks, r.category, r.status.label,
+  ].some(x => String(x).toLowerCase().includes(q)))
 })
 
 // 날짜는 항상 있으니 필터로 세지 않는다. 나머지 조건이 하나라도 걸려 있으면
 // 0건은 "선생성이 안 됐다"가 아니라 "조건에 맞는 게 없다"는 뜻이다 — 지정 문구를
 // 그대로 쓰면 운영자가 선생성 실패로 오독해 불필요한 재생성을 시도한다.
-const narrowed = computed(() =>
-  !!(search.value.trim() || state.value || createType.value || company.value || workerId.value))
+const narrowed = computed(() => {
+  const { date: _date, ...rest } = filters.value
+  return !!(search.value.trim() || Object.values(rest).some(v => v))
+})
 
 // 서버가 준 순서가 곧 claim 소진 순서(priority DESC, seq)다 — 헤더 클릭 정렬로
 // 흐트러지면 "이 순서대로 소진된다"는 화면의 의미 자체가 사라진다.
@@ -209,7 +217,13 @@ function onPriorityInput(w: WorkView, ev: Event) {
 }
 async function savePriority(w: WorkView) {
   const p = editing.value[w.id]
-  if (p === undefined || p === w.priority) return
+  if (p === undefined || p === w.priority) {
+    // 보낼 게 없어도 초안은 반드시 지운다. 남겨 두면 priorityDraft가 서버 값보다
+    // 초안을 우선하므로, 값을 바꿨다 되돌린 뒤 다른 운영자가 우선순위를 조정해도
+    // 이 화면만 새로고침해도 옛 숫자를 계속 보여준다.
+    delete editing.value[w.id]
+    return
+  }
   try {
     await works.setPriority(w.id, p)
     push('우선순위가 변경되었습니다.', 'success')
@@ -287,8 +301,8 @@ const resultText = computed(() =>
       v-model:search="search" @add="openEnqueue" @refresh="refreshAll"
     >
       <template #header-actions>
-        <input v-model="date" type="date" class="hd-field" aria-label="작업일" />
-        <select v-model="state" class="hd-field f-state" aria-label="상태">
+        <input v-model="filters.date" type="date" class="hd-field" aria-label="작업일" />
+        <select v-model="filters.state" class="hd-field f-state" aria-label="상태">
           <option value="">상태 전체</option>
           <option value="pending">대기</option>
           <option value="started">실행중</option>
@@ -296,18 +310,18 @@ const resultText = computed(() =>
           <option value="failed">실패</option>
           <option value="cancel">취소</option>
         </select>
-        <select v-model="createType" class="hd-field f-create" aria-label="생성구분">
+        <select v-model="filters.createType" class="hd-field f-create" aria-label="생성구분">
           <option value="">생성 전체</option>
           <option value="Scheduled">예약</option>
           <option value="Manual">수동</option>
           <option value="Immediately">즉시</option>
         </select>
-        <select v-model="company" class="hd-field f-company" aria-label="보험사">
+        <select v-model="filters.company" class="hd-field f-company" aria-label="보험사">
           <option value="">보험사 전체</option>
           <option v-for="c in insurerList ?? []" :key="c.id" :value="c.code">{{ c.name }}</option>
         </select>
         <!-- GET /workers는 SYSTEM 전용이다 — 그 미만에게는 조회도 노출도 하지 않는다. -->
-        <select v-if="authStore.isSystem" v-model="workerId" class="hd-field f-worker" aria-label="워커">
+        <select v-if="authStore.isSystem" v-model="filters.workerId" class="hd-field f-worker" aria-label="워커">
           <option value="">워커 전체</option>
           <option v-for="w in workerList ?? []" :key="w.id" :value="w.id">{{ w.name || w.id }}</option>
         </select>

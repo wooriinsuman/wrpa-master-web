@@ -260,6 +260,37 @@ describe('작업 현황', () => {
     expect(after.value).toBe('10')
   })
 
+  // 서버 값과 같은 숫자로 blur하면 보낼 게 없어 조기 반환한다. 그때 초안을
+  // 남겨 두면 priorityDraft가 서버 값보다 초안을 우선하므로, 이후 다른 운영자가
+  // 우선순위를 바꿔도 이 화면은 새로고침해도 옛 숫자를 계속 보여준다.
+  it('서버 값과 같은 값으로 되돌려 저장하면 초안을 남기지 않는다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    // setValue()는 input과 change를 함께 쏘므로 "타이핑"을 흉내 낼 수 없다
+    // (한 글자 고칠 때마다 저장돼 버린다) — 값만 넣고 input만 발생시킨다.
+    const input = () => el.find('.dt-row input[type="number"]')
+    async function type(v: string) {
+      const w = input()
+      ;(w.element as HTMLInputElement).value = v
+      await w.trigger('input')
+    }
+
+    // 20으로 고쳤다가 원래 값 10으로 되돌리고 blur — 서버 호출은 없다.
+    await type('20')
+    await type('10')
+    await input().trigger('change')
+    await flushPromises()
+    expect(setPriorityMock).not.toHaveBeenCalled()
+
+    // 그 사이 다른 운영자가 5로 바꿨다 → 목록을 다시 읽으면 5가 보여야 한다.
+    listMock.mockResolvedValue([{ ...rows()[0], priority: 5 }, rows()[1]])
+    await el.find('[aria-label="다시 조회"]').trigger('click')
+    await flushPromises()
+    await nextTick()
+
+    const after = el.find('.dt-row input[type="number"]').element as HTMLInputElement
+    expect(after.value).toBe('5')
+  })
+
   it('취소는 확인 다이얼로그를 거친다 — 닫으면 취소되지 않는다', async () => {
     const el = await mountSuspended(WorkStatusPage)
     const btn = el.findAll('.dt-row button').find(b => b.text() === '취소')!
@@ -318,6 +349,29 @@ describe('작업 현황', () => {
     // 표를 스텁해도 판정(응답 행 수 === 상한)에는 영향이 없다.
     const el = await mountSuspended(WorkStatusPage, { global: { stubs: { WDataTable: true } } })
     expect(el.find('.trunc').text()).toContain(`상위 ${LIMIT}건만 표시합니다`)
+  })
+
+  // 계정·워커 칸이 uuid에서 이름으로 바뀌면서 "로그에서 복사한 uuid를 붙여 넣어
+  // 행을 찾는" 운영 습관이 깨졌다. 이름으로도 id로도 찾혀야 한다.
+  it('검색은 계정·워커 이름과 원본 uuid를 모두 대상으로 한다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    const search = el.find('.ph-search')
+
+    // 표시값은 이름이지만 로그에서 복사한 36자 계정 uuid로도 그 행을 찾는다.
+    await search.setValue(ACC2)
+    expect(el.findAll('.dt-row').length).toBe(1)
+    expect(cellsOf(el, 0)[COL_ACCOUNT]!.text()).toBe('현대-김철수')
+
+    // 워커 uuid도 마찬가지 — 화면에는 test-worker-001만 보인다.
+    await search.setValue(WORKER2)
+    expect(el.findAll('.dt-row').length).toBe(1)
+    expect(cellsOf(el, 0)[COL_WORKER]!.text()).toBe('test-worker-001')
+
+    // 사람 이름 검색은 그대로 살아 있어야 한다(id 검색을 얻자고 잃으면 안 된다).
+    await search.setValue('현대-김철수')
+    expect(el.findAll('.dt-row').length).toBe(1)
+    await search.setValue('test-worker-001')
+    expect(el.findAll('.dt-row').length).toBe(1)
   })
 
   it('검색으로 0건이면 선생성 안내가 아니라 조건 안내를 낸다', async () => {
