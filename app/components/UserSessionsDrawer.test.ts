@@ -1,7 +1,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import UserSessionsDrawer from './UserSessionsDrawer.vue'
 
 const { listForUser, activityForUser, revokeAllForUser, revokeForUser } = vi.hoisted(() => ({
@@ -97,5 +97,46 @@ describe('UserSessionsDrawer', () => {
 
     await mountSuspended(UserSessionsDrawer, { props: { open: true, userId: 'u-1', userLabel: '홍길동' } })
     expect(document.body.textContent).not.toContain('최근 활동')
+  })
+
+  // 확인 문구의 개수는 백엔드의 제외 규칙(활성 AND 본인 아님)과 같아야 한다. 지금은
+  // 버튼 노출과 문구가 같은 computed를 공유해 구조적으로 보장되지만, 그 공유가 끊기면
+  // "3개 로그아웃합니다" 라 해놓고 2개만 끊는 상태가 조용히 생긴다.
+  async function openBulkConfirm() {
+    const btn = [...document.body.querySelectorAll('button')]
+      .find(b => b.textContent?.includes('전체 강제 로그아웃'))
+    expect(btn, '전체 강제 로그아웃 버튼이 있어야 한다').toBeTruthy()
+    btn!.click()
+    await nextTick()
+  }
+
+  it('counts only revocable sessions in the bulk confirm message', async () => {
+    listForUser.mockResolvedValue([
+      { familyId: 'f1', createdAt: NOW, lastUsedAt: NOW, active: true, current: false },
+      { familyId: 'f2', createdAt: NOW, lastUsedAt: NOW, active: true, current: false },
+      { familyId: 'f3', createdAt: NOW, lastUsedAt: NOW, active: false, current: false }, // 만료 — 세지 않는다
+    ])
+    activityForUser.mockResolvedValue([])
+
+    await mountSuspended(UserSessionsDrawer, { props: { open: true, userId: 'u-1', userLabel: '홍길동' } })
+    await openBulkConfirm()
+
+    expect(document.body.textContent).toContain('홍길동 님의 세션 2개를 모두 강제 로그아웃합니다')
+  })
+
+  // 관리자가 자기 계정을 대상으로 하면 백엔드가 현재 기기를 남긴다 — 문구도 그렇게 읽혀야
+  // 하고, 개수에서도 빠져야 한다.
+  it('uses the self-target wording and excludes the current device from the count', async () => {
+    listForUser.mockResolvedValue([
+      { familyId: 'f-self', createdAt: NOW, lastUsedAt: NOW, active: true, current: true },
+      { familyId: 'f1', createdAt: NOW, lastUsedAt: NOW, active: true, current: false },
+      { familyId: 'f2', createdAt: NOW, lastUsedAt: NOW, active: true, current: false },
+    ])
+    activityForUser.mockResolvedValue([])
+
+    await mountSuspended(UserSessionsDrawer, { props: { open: true, userId: 'u-1', userLabel: '홍길동' } })
+    await openBulkConfirm()
+
+    expect(document.body.textContent).toContain('현재 기기를 제외한 세션 2개를 강제 로그아웃합니다')
   })
 })

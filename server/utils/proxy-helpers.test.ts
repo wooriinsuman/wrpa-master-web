@@ -47,6 +47,18 @@ describe('clientContextHeaders', () => {
     expect(h['User-Agent']).toHaveLength(256)
   })
 
+  // 위 테스트는 "어딘가에서 잘린다"만 보장한다. 경계 자체를 고정해 off-by-one 을 잡는다.
+  it('leaves a User-Agent of exactly 256 chars untouched', () => {
+    const ua = 'x'.repeat(256)
+    const h = clientContextHeaders(fakeEvent({ 'user-agent': ua }))
+    expect(h['User-Agent']).toBe(ua)
+  })
+
+  it('drops exactly one character from a 257-char User-Agent', () => {
+    const h = clientContextHeaders(fakeEvent({ 'user-agent': 'y'.repeat(256) + 'Z' }))
+    expect(h['User-Agent']).toBe('y'.repeat(256))
+  })
+
   it('omits keys with no value rather than sending empty strings', () => {
     expect(clientContextHeaders(fakeEvent({}))).toEqual({})
   })

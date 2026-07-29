@@ -46,6 +46,17 @@ describe('formatUserAgent', () => {
     expect(formatUserAgent('node')).toBe('node')
   })
 
+  // 한쪽만 인식되는 경우 — 인식된 쪽만 내보내고 ' · ' 구분자를 남기지 않아야 한다.
+  it('reports the browser alone when the OS is unrecognised', () => {
+    expect(formatUserAgent('Mozilla/5.0 (X11; FreeBSD amd64; rv:127.0) Gecko/20100101 Firefox/127.0'))
+      .toBe('Firefox 127')
+  })
+
+  it('reports the OS alone when the browser is unrecognised', () => {
+    expect(formatUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) SomeCustomAgent/1.0'))
+      .toBe('Windows')
+  })
+
   it('labels an empty or missing UA', () => {
     expect(formatUserAgent('')).toBe('알 수 없는 기기')
     expect(formatUserAgent(null)).toBe('알 수 없는 기기')
