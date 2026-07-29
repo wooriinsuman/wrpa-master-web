@@ -39,6 +39,36 @@ describe('WDataTable', () => {
     expect(el.emitted('rowClick')?.length).toBe(1)
   })
 
+  // 선택 셀도 액션 셀과 같은 취급이어야 한다 — 체크박스를 켤 때마다 상세
+  // 드로어가 열리면 일괄 선택이 불가능해진다.
+  it('does not emit rowClick for a click inside the selection cell', async () => {
+    const rows = [{ id: 'r1', status: '활성', name: '삼성화재', code: 'SS-001' }]
+    const el = await mountSuspended(WDataTable, {
+      props: { columns, rows, selectable: true, rowClickable: true, selected: [] },
+    })
+    // 선택 자체는 그대로 동작한다(체크박스의 change).
+    await el.find('.dt-td--sel input').setValue(true)
+    expect(el.emitted('update:selected')?.at(-1)).toEqual([['r1']])
+    // 셀 여백을 눌러도, 체크박스를 직접 눌러도 행 클릭은 나가지 않는다.
+    await el.find('.dt-td--sel').trigger('click')
+    expect(el.emitted('rowClick')).toBeUndefined()
+    await el.find('.dt-td--sel input').trigger('click')
+    expect(el.emitted('rowClick')).toBeUndefined()
+    // 다른 셀은 그대로 행 클릭을 낸다.
+    await el.findAll('.dt-td')[1]!.trigger('click')
+    expect(el.emitted('rowClick')?.length).toBe(1)
+  })
+
+  // selectable/rowClickable을 모두 쓰지 않는 기존 호출부(~14곳)에는 선택 셀이
+  // 아예 렌더되지 않는다 — 이번 변경이 가산적임을 고정한다.
+  it('renders no selection cell when selectable is not passed', async () => {
+    const rows = [{ id: 'r1', status: '활성', name: '삼성화재', code: 'SS-001' }]
+    const el = await mountSuspended(WDataTable, { props: { columns, rows } })
+    expect(el.find('.dt-td--sel').exists()).toBe(false)
+    await el.find('.dt-row .dt-td').trigger('click')
+    expect(el.emitted('rowClick')?.length).toBe(1)
+  })
+
   it('makes a clickable row keyboard-reachable and opens it with Enter/Space', async () => {
     const rows = [{ status: '활성', name: '삼성화재', code: 'SS-001' }]
     const el = await mountSuspended(WDataTable, { props: { columns, rows, rowClickable: true } })

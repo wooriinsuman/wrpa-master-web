@@ -168,7 +168,10 @@ function toggleAll() {
         @click="emit('rowClick', row)"
         @keydown="onRowKey(row, $event)"
       >
-        <div v-if="selectable" class="dt-td dt-td--sel">
+        <!-- 액션 셀과 같은 이유로 propagation을 멈춘다: 체크박스를 켜는 동작이
+             행 클릭(상세 드로어 열기)을 겸하면 안 된다. selectable을 쓰지 않는
+             호출부에는 이 셀 자체가 렌더되지 않으므로 동작 변화가 없다. -->
+        <div v-if="selectable" class="dt-td dt-td--sel" @click.stop @keydown.stop>
           <input type="checkbox" :checked="selected.includes(row.id)" @change="toggleOne(row.id)" />
         </div>
         <div v-if="indexColumn" class="dt-td dt-td--idx">{{ i + 1 }}</div>
