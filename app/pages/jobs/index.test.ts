@@ -72,7 +72,9 @@ function rows() {
       // 끝난 행은 백엔드가 accountName을 채워 주지 않는다(buildDiagInput은 pending만
       // 조회한다) — 화면이 계정 목록에서 직접 이름을 찾아야 한다.
       id: 'w2', company: 'hyundai_marine', state: 'done', category: '0:new',
-      tasks: [], priority: 5, workerId: WORKER2, workDate: '2026-07-28',
+      // workerName은 백엔드가 배정된 행에 실어 준다 — GET /workers가 SYSTEM
+      // 전용이라 USER/ADMIN이 uuid를 면할 수 있는 유일한 수단이다.
+      tasks: [], priority: 5, workerId: WORKER2, workerName: 'test-worker-001', workDate: '2026-07-28',
       workTime: '10:00', closingMonth: '2026-07', retriedCount: 1, createType: 'Scheduled',
       accountId: ACC2, accountName: '', eligibleWorkerCount: 2,
     },
@@ -127,8 +129,9 @@ describe('작업 현황', () => {
     expect(cellsOf(el, 1)[COL_WAIT]!.text()).toBe('—')
   })
 
-  it('워커 목록에 없는 id는 이름을 지어내지 않고 줄여서 보여준다', async () => {
+  it('워커 목록에도 없고 workerName도 없으면 이름을 지어내지 않고 줄여서 보여준다', async () => {
     workersListMock.mockResolvedValue([])
+    listMock.mockResolvedValue(rows().map(r => ({ ...r, workerName: undefined })))
     clearNuxtData(KEYS)
     const el = await mountSuspended(WorkStatusPage)
     const worker = cellsOf(el, 1)[COL_WORKER]!
@@ -218,8 +221,11 @@ describe('작업 현황', () => {
     expect(el.findAll('.dt-row button').filter(b => b.text() === '취소').length).toBe(0)
     expect(el.find('select.f-worker').exists()).toBe(false)
     expect(workersListMock).not.toHaveBeenCalled()
-    // 워커 목록이 없어도 워커 칸이 비거나 터지지 않는다 — 줄인 id로 물러난다.
-    expect(cellsOf(el, 1)[COL_WORKER]!.text()).toBe('e60aa178…')
+    // 워커 목록을 못 읽어도 워커 칸에 uuid가 뜨면 안 된다 — 백엔드가 실어 준
+    // workerName이 받는다. 읽기 권한을 USER까지 내린 게 이 화면이므로, SYSTEM만
+    // 이름을 보는 상태는 고쳐진 게 아니다.
+    expect(cellsOf(el, 1)[COL_WORKER]!.text()).toBe('test-worker-001')
+    expect(cellsOf(el, 1)[COL_WORKER]!.text()).not.toContain(WORKER2)
     // 계정 이름은 ADMIN도 볼 수 있어야 한다(GET /accounts는 회사 스코프 읽기).
     expect(cellsOf(el, 1)[COL_ACCOUNT]!.text()).toBe('현대-김철수')
   })
@@ -235,7 +241,9 @@ describe('작업 현황', () => {
     // GET /api/workers는 SYSTEM 전용이다 — 호출하면 USER는 403을 받는다.
     expect(el.find('select.f-worker').exists()).toBe(false)
     expect(workersListMock).not.toHaveBeenCalled()
-    expect(cellsOf(el, 1)[COL_WORKER]!.text()).toBe('e60aa178…')
+    // 이 기능이 열린 바로 그 사용자다 — 워커 칸이 uuid로 떨어지면 안 된다.
+    expect(cellsOf(el, 1)[COL_WORKER]!.text()).toBe('test-worker-001')
+    expect(cellsOf(el, 1)[COL_WORKER]!.text()).not.toContain(WORKER2)
     // 보험사 필터는 USER도 쓸 수 있어야 한다.
     expect(insurersListMock).toHaveBeenCalled()
     expect(el.find('select.f-company').exists()).toBe(true)

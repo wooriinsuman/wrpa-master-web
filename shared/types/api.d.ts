@@ -1586,6 +1586,8 @@ export interface components {
             } | null;
             /** @description 배정된 워커 id — pending이면 빈 문자열 */
             workerId?: string;
+            /** @description 배정된 워커 이름. GET /workers는 SYSTEM 전용이라 그 미만은 id를 이름으로 바꿀 수 없어 서버가 실어 보낸다. 해석 실패/미배정이면 필드가 없다 — 화면은 줄인 id로 떨어뜨린다 */
+            workerName?: string;
             priority?: number;
             createType?: string;
             /** @description YYYY-MM */

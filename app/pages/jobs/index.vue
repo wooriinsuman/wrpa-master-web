@@ -45,19 +45,11 @@ const { push } = useToast()
 // RankSystem 전용이다 — 워커 목록은 아예 조회하지 않는다(USER는 403).
 const authStore = useAuthStore()
 
-// 로컬(운영자 = KST) 기준 오늘. toISOString()은 UTC라 09:00 이전에는 어제를
-// 가리킨다 — "오늘 작업"이 화면의 전제이므로 로컬 날짜로 만든다.
-function today(): string {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
-
 // 서버로 나가는 필터는 전부 여기 한 곳에 모은다 — 목록과 요약이 같은 출처에서
 // 파생돼야 둘이 서로 다른 모집단을 세는 일이 없다. search는 일부러 빼 뒀다:
 // 클라이언트에서 이미 받은 행만 거르는 값이라 서버로 보내면 안 된다.
 const filters = ref({
-  date: today(),
+  date: localToday(),
   state: '',
   createType: '',
   company: '',
@@ -103,8 +95,8 @@ function nameMap(list: { id: string; name?: string }[] | null): Record<string, s
   return Object.fromEntries(list?.filter(x => x.name).map(x => [x.id, x.name!]) ?? [])
 }
 const accountNames = computed(() => nameMap(accountList.value ?? null))
-// GET /workers는 SYSTEM 전용이라 그 미만에게는 이 맵이 항상 비어 있다 — 워커
-// 칸은 줄인 id로 떨어진다(아래 workerLabel).
+// GET /workers는 SYSTEM 전용이라 그 미만에게는 이 맵이 항상 비어 있다 — 그
+// 사용자들의 워커 칸은 백엔드가 실어 준 workerName이 받는다(아래 workerLabel).
 const workerNames = computed(() => nameMap(workerList.value ?? null))
 
 async function refreshAll() {
@@ -130,17 +122,20 @@ const CREATE_TYPE_LABEL: Record<string, string> = {
 // 워커 칸의 두 얼굴: 대기 행은 "지금 이걸 가져갈 수 있는 워커 수", 그 외는 실제
 // 배정 워커. 후보 0은 영원히 실행되지 않는다는 뜻이라 숫자가 아니라 사고로 알린다.
 function workerCell(w: WorkView): StatusCell | string {
-  if (w.state !== 'pending') return workerLabel(w.workerId)
+  if (w.state !== 'pending') return workerLabel(w)
   const n = w.eligibleWorkerCount ?? 0
   return n === 0 ? { label: '자격 워커 없음', kind: 'fail' } : `후보 ${n}`
 }
 
-// 워커 이름 → 없으면 줄인 id. 지어낸 이름은 절대 쓰지 않는다: 목록을 못 읽는
-// USER/ADMIN에게는 "test-worker-001"이 아니라 "e60aa178…"이 보이고, 전체 값은
-// 셀의 title에 남는다.
-function workerLabel(id: string | undefined): string {
+// 워커 칸: 목록에서 찾은 이름 → 백엔드가 준 workerName → 줄인 id 순(계정 칸과
+// 같은 규칙). GET /workers는 SYSTEM 전용이라 USER/ADMIN에게 workerNames는 항상
+// 비어 있다 — 이 사용자들에게 uuid를 면하게 해 주는 건 workerName뿐이고, 읽기
+// 권한을 USER까지 내린 게 바로 이 화면이다. 어느 쪽도 못 찾으면 줄인 id로
+// 물러난다: 지어낸 이름은 절대 쓰지 않고, 전체 값은 셀의 title에 남는다.
+function workerLabel(w: WorkView): string {
+  const id = w.workerId
   if (!id) return '—'
-  return workerNames.value[id] ?? shortId(id)
+  return workerNames.value[id] ?? (w.workerName || shortId(id))
 }
 
 // 계정 칸: 목록에서 찾은 이름 → 백엔드가 준 accountName(pending 행에만 채워진다)

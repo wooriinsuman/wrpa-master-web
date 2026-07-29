@@ -19,6 +19,13 @@ export function fmtDuration(sec: number): string {
   return `${s}초`
 }
 
+// 로컬(운영자 = KST) 기준 오늘, YYYY-MM-DD. toISOString()은 UTC라 09:00 이전에는
+// 어제를 가리킨다 — 날짜로 스코프되는 조회(GET /works)는 하루가 통째로 어긋난다.
+export function localToday(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 // ISO 문자열 → ko-KR 로컬 표기. 빈값/파싱 실패는 '—'.
 export function fmtDate(iso: string): string {
   if (!iso) return '—'
