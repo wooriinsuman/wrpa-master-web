@@ -95,7 +95,7 @@ extractApiError(e, fallback, overrides?)
 우선순위는 `overrides[code]` → 공용 매핑 → `fallback`이다.
 
 `overrides`는 선택 인자로 뒤에 붙으므로 기존 호출부(`useCrudPage.ts`, `schedules`,
-`order-policies`, `schedule-queue`, `holidays`)는 그대로 두면 된다. 인자를 바꾸지
+`order-policies`, `jobs`, `holidays`)는 그대로 두면 된다. 인자를 바꾸지
 않아도 code 기반 문구를 자동으로 얻고, 매핑에 없는 code에서만 기존 fallback이
 그대로 쓰인다.
 
@@ -166,7 +166,7 @@ SSR(`useAsyncData` 경유) 경로: 이 프로젝트에는 `useFetch`가 없다 �
 `useApi()`는 `$fetch.create()`(ofetch)이고, 모든 composable이 `useAsyncData(key,
 () => api.list())` 형태로 그 인스턴스를 그대로 호출한다. 즉 SSR과 클라이언트가
 같은 ofetch 코드 경로를 탄다. 그리고 실제로 `extractApiError`를 호출하는 5곳
-(`useCrudPage.ts`의 save/remove, `holidays`, `schedule-queue`, `order-policies`,
+(`useCrudPage.ts`의 save/remove, `holidays`, `jobs`, `order-policies`,
 `schedules`)은 전부 버튼 클릭·폼 제출 같은 사용자 상호작용 핸들러 안의
 try/catch이며 브라우저에서만 실행된다 — SSR 중 실행되는 `useAsyncData` 호출은
 어느 페이지도 `error`를 구조 분해하지 않아 `extractApiError`에 넘기지 않는다
