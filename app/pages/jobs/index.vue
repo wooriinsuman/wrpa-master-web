@@ -12,6 +12,7 @@ import { blankWorkForm, type WorkForm } from '~/utils/workForm'
 import { extractApiError } from '~/utils/apiError'
 
 type WorkView = components['schemas']['WorkView']
+type WorkerView = components['schemas']['WorkerView']
 
 interface WorkRow {
   id: string
@@ -119,12 +120,40 @@ const CREATE_TYPE_LABEL: Record<string, string> = {
   Scheduled: '예약', Manual: '수동', Immediately: '즉시',
 }
 
+// 워커 온라인 판정: register·poll이 last_connected를 주기적으로 갱신한다는 전제를
+// 그대로 따른다(dashboard_handler.go의 임베디드 대시보드가 쓰는 것과 같은 15초
+// 끊김 = offline 관례). 백엔드 waitReason/eligibleWorkerCount는 liveness를 전혀
+// 보지 않으므로(PopPendingWork 게이트와 동일하게 SQL 패리티를 지키기 위해서다)
+// 이 판정은 화면 전용 보조 신호일 뿐, 후보 수·대기사유 어느 쪽도 바꾸지 않는다.
+const WORKER_ALIVE_MS = 15_000
+function isWorkerAlive(w: WorkerView): boolean {
+  return !!w.lastConnectedAt && Date.now() - w.lastConnectedAt <= WORKER_ALIVE_MS
+}
+
+// 이 work를 가져갈 수 있는 후보(eligibleWorkerCount) 중 지금 온라인인 수. 자격
+// 규칙은 work.sql의 배정 규칙과 같다(§3.4: 미배정 워커는 company_ref가 빈 work만,
+// 매핑된 워커는 매핑된 회사만) — 다만 일시중지·계정 잠김 등은 이미
+// eligibleWorkerCount에 반영돼 있으므로 여기서는 paused만 한 번 더 걸러낸다.
+function onlineEligibleCount(w: WorkView, list: WorkerView[]): number {
+  return list.filter(worker =>
+    !worker.paused && isWorkerAlive(worker) &&
+    (!w.company || (worker.companyIds ?? []).includes(w.company)),
+  ).length
+}
+
 // 워커 칸의 두 얼굴: 대기 행은 "지금 이걸 가져갈 수 있는 워커 수", 그 외는 실제
 // 배정 워커. 후보 0은 영원히 실행되지 않는다는 뜻이라 숫자가 아니라 사고로 알린다.
+// 후보가 있어도 그 유일한 후보가 하루 종일 오프라인이면 "대기 중"만 보고는 알 수
+// 없다 — GET /workers가 SYSTEM 전용이라 이 워커 목록을 가진 사용자에게만 온라인
+// 수를 덧붙인다. USER/ADMIN은 workerList를 아예 못 받으므로(403) 이 칸을 보태지
+// 않는다 — 항상 0으로 보이는 거짓 신호보다 아예 안 보이는 게 낫다.
 function workerCell(w: WorkView): StatusCell | string {
   if (w.state !== 'pending') return workerLabel(w)
   const n = w.eligibleWorkerCount ?? 0
-  return n === 0 ? { label: '자격 워커 없음', kind: 'fail' } : `후보 ${n}`
+  if (n === 0) return { label: '자격 워커 없음', kind: 'fail' }
+  if (!authStore.isSystem) return `후보 ${n}`
+  const online = onlineEligibleCount(w, workerList.value ?? [])
+  return `후보 ${n} (온라인 ${online})`
 }
 
 // 워커 칸: 목록에서 찾은 이름 → 백엔드가 준 workerName → 줄인 id 순(계정 칸과
@@ -144,6 +173,14 @@ function accountLabel(w: WorkView): string {
   const id = w.accountId
   if (!id) return w.accountName || '—'
   return accountNames.value[id] ?? (w.accountName || shortId(id))
+}
+
+// 워커 필터 옵션 라벨. SQL이 일시중지 워커를 자격에서 정확히 빼면서, 그 워커로
+// 필터링한 운영자에게는 "대기 작업 없음"만 보이고 진짜 이유(일시중지)는 안 보이는
+// 화면이 됐다 — 드롭다운 단계에서 바로 알려준다.
+function workerOptionLabel(w: WorkerView): string {
+  const base = w.name || w.id
+  return w.paused ? `${base} (일시중지)` : base
 }
 
 const rows = computed<WorkRow[]>(() => {
@@ -318,7 +355,7 @@ const resultText = computed(() =>
         <!-- GET /workers는 SYSTEM 전용이다 — 그 미만에게는 조회도 노출도 하지 않는다. -->
         <select v-if="authStore.isSystem" v-model="filters.workerId" class="hd-field f-worker" aria-label="워커">
           <option value="">워커 전체</option>
-          <option v-for="w in workerList ?? []" :key="w.id" :value="w.id">{{ w.name || w.id }}</option>
+          <option v-for="w in workerList ?? []" :key="w.id" :value="w.id">{{ workerOptionLabel(w) }}</option>
         </select>
       </template>
     </WPageHeader>
@@ -329,6 +366,13 @@ const resultText = computed(() =>
         <span class="sum-item">{{ s }}</span>
       </template>
     </div>
+
+    <!-- 요약은 일부러 state를 안 받는다(위 summaryParams 주석) — 그래서 상태를
+         좁혀 표가 비거나 줄어도 요약 숫자는 그 날 전체를 그대로 보여준다. 이 차이를
+         모르면 "요약엔 있는데 표엔 없다"를 버그로 오독한다. -->
+    <p v-if="filters.state && summaryItems.length" class="state-note">
+      위 요약은 상태 필터와 무관하게 이 날짜 전체를 셉니다 — 표는 "{{ STATE_LABEL[filters.state] ?? filters.state }}" 상태만 보여줍니다.
+    </p>
 
     <p v-if="truncated" class="trunc">
       상위 {{ WORK_LIST_LIMIT }}건만 표시합니다 — 위 요약은 이 날짜 전체를 세므로 표보다 클 수 있습니다.
@@ -415,6 +459,7 @@ const resultText = computed(() =>
 .sum { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--th); font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
 .sum-sep { color: var(--line); }
 .trunc { margin: 0; padding: 9px 18px; border-bottom: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--warn); background: var(--th); font-size: 12.5px; color: var(--ink-2); }
+.state-note { margin: 0; padding: 9px 18px; border-bottom: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--idle); background: var(--th); font-size: 12.5px; color: var(--ink-2); }
 .pr-input { width: 5.5rem; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--ink); }
 .muted { font-size: 12px; color: var(--ink-2); }
 .codeblock { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--th); color: var(--ink); font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow: auto; }

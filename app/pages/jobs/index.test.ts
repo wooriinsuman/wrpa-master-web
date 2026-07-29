@@ -161,11 +161,81 @@ describe('작업 현황', () => {
   })
 
   it('대기 중 작업은 자격 워커 후보 수를 보여준다', async () => {
+    // 이 워커는 회사가 안 맞아 온라인 집계 대상에서 빠진다 — '후보 N'만 검증한다.
+    workersListMock.mockResolvedValue([{ id: WORKER2, name: 'test-worker-001' }])
     listMock.mockResolvedValue([{ ...rows()[0], eligibleWorkerCount: 3, waitReason: 'not_yet' }])
     clearNuxtData(KEYS)
     const el = await mountSuspended(WorkStatusPage)
-    expect(cellsOf(el, 0)[COL_WORKER]!.text()).toBe('후보 3')
+    expect(cellsOf(el, 0)[COL_WORKER]!.text()).toContain('후보 3')
     expect(cellsOf(el, 0)[COL_WAIT]!.text()).toBe('실행시각 대기')
+  })
+
+  // b1: 후보는 있어도(SQL 패리티상 eligibleWorkerCount는 liveness를 안 본다) 그
+  // 후보가 실제로는 오프라인이면 "대기 중"만 보고는 알 수 없다. 온라인 수를
+  // 별도로 덧붙여야 하고, waitReason/후보 수 자체는 절대 바뀌면 안 된다.
+  it('SYSTEM에게는 후보 수 옆에 그중 온라인인 워커 수를 덧붙인다', async () => {
+    workersListMock.mockResolvedValue([
+      // company가 안 맞으면 후보 산정에서 제외 — samsung_property 미매핑.
+      { id: 'w-other-company', name: 'w-other', paused: false, companyIds: ['hyundai_marine'], lastConnectedAt: Date.now() },
+      // 하루 전 접속 — 오프라인으로 셈해야 한다.
+      { id: 'w-stale', name: 'w-stale', paused: false, companyIds: ['samsung_property'], lastConnectedAt: Date.now() - 24 * 60 * 60 * 1000 },
+    ])
+    listMock.mockResolvedValue([{ ...rows()[0], eligibleWorkerCount: 1, waitReason: 'ready' }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    // 자격/대기사유는 SQL 그대로 — 후보 1, 대기 중을 그대로 보여준다.
+    expect(cellsOf(el, 0)[COL_WORKER]!.text()).toBe('후보 1 (온라인 0)')
+    expect(cellsOf(el, 0)[COL_WAIT]!.text()).toBe('대기 중')
+  })
+
+  it('SYSTEM에게는 후보 중 온라인 워커가 있으면 온라인 수에 반영한다', async () => {
+    workersListMock.mockResolvedValue([
+      { id: 'w-online', name: 'w-online', paused: false, companyIds: ['samsung_property'], lastConnectedAt: Date.now() },
+    ])
+    listMock.mockResolvedValue([{ ...rows()[0], eligibleWorkerCount: 1, waitReason: 'ready' }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    expect(cellsOf(el, 0)[COL_WORKER]!.text()).toBe('후보 1 (온라인 1)')
+  })
+
+  // GET /workers는 SYSTEM 전용이라 USER/ADMIN은 워커 목록을 아예 못 받는다 —
+  // 그 경우 항상 0으로 보이는 거짓 신호보다 아예 안 보이는 게 맞다.
+  it('비SYSTEM에게는 후보 수만 보여주고 온라인 수는 덧붙이지 않는다', async () => {
+    const auth = useAuthStore()
+    auth.user = { userId: 'u1', username: 'user', roles: [], level: 10, companyId: 'c1' }
+    listMock.mockResolvedValue([{ ...rows()[0], eligibleWorkerCount: 1, waitReason: 'ready' }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    expect(cellsOf(el, 0)[COL_WORKER]!.text()).toBe('후보 1')
+    expect(cellsOf(el, 0)[COL_WORKER]!.text()).not.toContain('온라인')
+    expect(workersListMock).not.toHaveBeenCalled()
+  })
+
+  // b2: SQL이 일시중지 워커를 자격에서 정확히 빼면서, 그 워커를 드롭다운에서
+  // 골라도 "대기 작업 없음"만 보이고 이유(일시중지)가 안 보인다 — 라벨로 미리 알린다.
+  it('워커 드롭다운은 일시중지 워커를 표시해 둔다', async () => {
+    workersListMock.mockResolvedValue([
+      { id: 'w1', name: 'w1', paused: true },
+      { id: 'w2', name: 'w2', paused: false },
+    ])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    const options = el.find('select.f-worker').findAll('option')
+    expect(options.find(o => o.text() === 'w1 (일시중지)')).toBeTruthy()
+    expect(options.find(o => o.text() === 'w2')).toBeTruthy()
+  })
+
+  // b3: 요약은 state를 안 받아 그 날 전체를 세고, 표는 state로 좁힌다 — 상태
+  // 필터가 걸려 있으면 이 차이를 화면에서 바로 알려야 한다(안 그러면 "요약엔
+  // 있는데 표엔 없다"를 버그로 오독한다).
+  it('상태 필터가 걸려 있으면 요약과 표 모집단이 다르다는 안내를 낸다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    expect(el.find('.state-note').exists()).toBe(false)
+
+    await el.find('select.f-state').setValue('cancel')
+    await flushPromises()
+    expect(el.find('.state-note').text()).toContain('취소')
+    expect(el.find('.state-note').text()).toContain('요약')
   })
 
   it('요약 카운트와 영업일을 표시한다', async () => {
