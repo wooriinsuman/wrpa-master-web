@@ -1014,6 +1014,344 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/worker/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 패키지 새 버전 업로드 (CI publish)
+         * @description multipart `file`(tar.gz)을 blob으로 저장하고 sha256/크기를 담은 메타를 쓴다. `publishing`이 false가 아니면 기존 latest보다 높은 버전일 때만 배포 포인터를 갱신한다. `version=latest`는 배포 포인터 키와 충돌하므로 예약어로 거부한다.
+         */
+        post: operations["PublishPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worker/packages/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 현재 배포된 버전 조회 (launcher 자동 업데이트) */
+        get: operations["GetLatestPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worker/packages/{name}/{version}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 패키지 blob 다운로드 (머신 플레인) */
+        get: operations["DownloadPackage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worker/assets/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 현재 배포(active) 매니페스트 조회 (워커 동기화 진입점)
+         * @description active 포인터가 없으면 404 — 워커는 이를 "배포 없음"으로 보고 로컬 에셋을 그대로 둔다. 저장소 장애는 404가 아니라 500으로 구분된다.
+         */
+        get: operations["GetActiveAssetManifest"];
+        put?: never;
+        /**
+         * 새 매니페스트 버전 publish (CI, 자동 활성화)
+         * @description 본문의 `version`을 라벨로 스냅샷을 남기고 인덱스에 추가한 뒤 곧바로 활성화한다. blob은 먼저 `POST /api/worker/assets/blob/{hash}`로 올려 두어야 한다.
+         */
+        post: operations["PublishAssetManifest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worker/assets/blob/{hash}/exists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** blob 존재 확인 (CI 업로더 전용, 중복 업로드 회피) */
+        get: operations["AssetBlobExists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/worker/assets/blob/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** content-addressed blob 다운로드 */
+        get: operations["DownloadAssetBlob"];
+        put?: never;
+        /**
+         * content-addressed blob 업로드 (멱등)
+         * @description 같은 hash가 이미 있으면 본문을 읽지 않고 `skipped: true`로 응답한다.
+         */
+        post: operations["UploadAssetBlob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 모든 패키지의 모든 버전 목록 (배포 중인 버전 표시) */
+        get: operations["ListPackages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/packages/{name}/{version}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 패키지 blob 다운로드 (브라우저 관리 플레인)
+         * @description 머신 플레인 다운로드와 같은 blob을 주지만 worker key 대신 upload token으로 보호한다 — 브라우저의 `<a download>`는 Authorization 헤더를 실을 수 없다.
+         */
+        get: operations["DownloadPackageForAdmin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/packages/{name}/{version}/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 배포 포인터를 지정 버전으로 이동 (deploy / rollback)
+         * @description publish와 달리 버전 대소를 따지지 않으므로 더 낮은 버전으로도 되돌릴 수 있다.
+         */
+        put: operations["SetLatestPackage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/packages/{name}/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 배포 포인터 해제 (un-deploy, 버전은 모두 보존)
+         * @description 멱등 — 포인터가 이미 없어도 204. 이후 워커는 갱신 대상이 없다.
+         */
+        delete: operations["ClearLatestPackage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/packages/{name}/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 패키지 버전 삭제 (blob + 메타)
+         * @description 삭제 후 latest.json과 패키지 인덱스를 남은 버전으로 복구한다 — 남은 버전이 있으면 그중 최신을 배포 포인터로 올리고, 없으면 포인터와 인덱스 항목을 지운다.
+         */
+        delete: operations["DeletePackage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/manifests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 매니페스트 버전 목록 (최신 발행순, 배포 중인 버전 표시) */
+        get: operations["ListAssetManifests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/manifests/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 특정 버전 매니페스트 스냅샷 조회 */
+        get: operations["GetAssetManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/manifests/{version}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 배포(active) 매니페스트를 지정 버전으로 이동 (deploy / rollback) */
+        put: operations["ActivateAssetManifest"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 배포(active) 포인터 해제 (un-deploy, 버전은 모두 보존)
+         * @description 멱등 — 포인터가 이미 없어도 204. 이후 워커는 manifest 조회에서 404를 받고 로컬 에셋을 유지한다.
+         */
+        delete: operations["ClearActiveAssetManifest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schedule/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 하루치 선생성 큐를 지우고 다시 만든다 (ADMIN 이상)
+         * @description 해당 날짜의 pending Scheduled work만 지우고 job에서 다시 만든다 — 진행 중이거나 끝난 work은 살아남는다. 스케줄러의 중복 방지 경로를 그대로 쓰므로 매분 티커와 겹쳐도 중복 생성되지 않는다.
+         */
+        post: operations["RegenerateSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 개발용 모니터링 페이지 (HTML, 무인증) */
+        get: operations["GetDashboardPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dashboard/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 대시보드 데이터 피드 (workers/works/packages 집계, 무인증) */
+        get: operations["GetDashboardData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1685,6 +2023,112 @@ export interface components {
         };
         UpdateOrderPolicyRequest: {
             rows: components["schemas"]["OrderPolicyRow"][];
+        };
+        PackageMeta: {
+            /** @example wrpa-client */
+            name: string;
+            /** @example 1.0.42 */
+            version: string;
+            /** @description sha256 hex of the package blob */
+            hash: string;
+            /** @description blob object key (packages/{name}/{version}.tar.gz) */
+            object: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PackageListItem: {
+            name: string;
+            version: string;
+            hash: string;
+            object: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description true = latest.json이 가리키는 배포 중인 버전 */
+            latest: boolean;
+        };
+        PackageListResponse: {
+            packages: components["schemas"]["PackageListItem"][];
+        };
+        PackageLatestResponse: {
+            name: string;
+            version: string;
+            hash: string;
+            object: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description 머신플레인 다운로드 경로 (worker key 필요) */
+            downloadUrl: string;
+        };
+        PublishPackageRequest: {
+            /**
+             * Format: binary
+             * @description tar.gz 패키지 본문
+             */
+            file: string;
+        };
+        AssetFileEntry: {
+            /** @description assets/blobs/{hash} 키 */
+            hash: string;
+            /** Format: int64 */
+            size: number;
+        };
+        AssetManifest: {
+            /**
+             * @description 버전 라벨 (영숫자 . _ -, 최대 64자, `index`/`active` 예약)
+             * @example 1.0.42
+             */
+            version: string;
+            /** @description 워커 로컬 상대경로 → blob 참조 */
+            files: {
+                [key: string]: components["schemas"]["AssetFileEntry"];
+            };
+        };
+        AssetManifestPublishResponse: {
+            version: string;
+        };
+        AssetManifestListItem: {
+            version: string;
+            /** Format: date-time */
+            createdAt: string;
+            fileCount: number;
+            /** Format: int64 */
+            totalSize: number;
+            /** @description true = 현재 배포(active) 버전 */
+            active: boolean;
+        };
+        AssetManifestListResponse: {
+            manifests: components["schemas"]["AssetManifestListItem"][];
+        };
+        AssetBlobUploadResponse: {
+            ok: boolean;
+            /** @description true = 같은 hash가 이미 있어 업로드를 생략했다 */
+            skipped?: boolean;
+        };
+        ScheduleRegenerateResponse: {
+            /**
+             * @description 재생성 대상 날짜 (YYYY-MM-DD)
+             * @example 2026-07-30
+             */
+            date: string;
+            /** @description 지운 pending Scheduled work 수 */
+            deleted: number;
+        };
+        DashboardData: {
+            workers: {
+                [key: string]: unknown;
+            }[];
+            works: {
+                [key: string]: unknown;
+            }[];
+            packages: {
+                [key: string]: unknown;
+            }[];
         };
     };
     responses: {
@@ -3735,6 +4179,588 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    PublishPackage: {
+        parameters: {
+            query: {
+                name: string;
+                version: string;
+                /** @description `false`일 때만 배포 포인터(latest.json) 갱신을 건너뛴다 */
+                publishing?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PublishPackageRequest"];
+            };
+        };
+        responses: {
+            /** @description published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageMeta"];
+                };
+            };
+            /** @description name/version 누락, `version=latest`, 잘못된 multipart, 파일 파트 없음 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description package too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GetLatestPackage: {
+        parameters: {
+            query: {
+                name: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description latest package */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageLatestResponse"];
+                };
+            };
+            /** @description name 누락 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 배포된 버전 없음 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DownloadPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description package blob (Content-Disposition attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/gzip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 해당 버전 blob 없음 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GetActiveAssetManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description active manifest snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetManifest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 배포(active) 버전 없음 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublishAssetManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetManifest"];
+            };
+        };
+        responses: {
+            /** @description published and activated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetManifestPublishResponse"];
+                };
+            };
+            /** @description 잘못된 JSON 또는 version 형식 오류 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 이미 존재하는 version (text/plain) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description manifest too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AssetBlobExists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description blob exists (no body) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 해당 hash 없음 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DownloadAssetBlob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description blob content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 해당 hash 없음 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    UploadAssetBlob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description stored (or skipped) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetBlobUploadResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description blob too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ListPackages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description packages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageListResponse"];
+                };
+            };
+        };
+    };
+    DownloadPackageForAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description package blob (Content-Disposition attachment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/gzip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 해당 버전 blob 없음 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SetLatestPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description deployed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageMeta"];
+                };
+            };
+            /** @description name/version 누락 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 발행된 적 없는 버전 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClearLatestPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            /** @description name 누락 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    DeletePackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            /** @description name/version 누락 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    ListAssetManifests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description manifest versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetManifestListResponse"];
+                };
+            };
+        };
+    };
+    GetAssetManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description manifest snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetManifest"];
+                };
+            };
+            /** @description 허용되지 않는 version 라벨 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 발행된 적 없는 버전 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ActivateAssetManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            /** @description 허용되지 않는 version 라벨 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description 발행된 적 없는 버전 (text/plain) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClearActiveAssetManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    RegenerateSchedule: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM-DD. 생략하면 스케줄러 타임존 기준 내일 */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description regenerated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRegenerateResponse"];
+                };
+            };
+            /** @description date 형식 오류 (text/plain) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    GetDashboardPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description dashboard page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+        };
+    };
+    GetDashboardData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description dashboard aggregate */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardData"];
+                };
+            };
         };
     };
 }
