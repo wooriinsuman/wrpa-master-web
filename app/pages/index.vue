@@ -73,7 +73,7 @@ const workRows = computed(() => works.value
       <div class="panel-head">
         <h2>진행 중인 작업</h2>
         <span class="muted mono">{{ workRows.length }} running</span>
-        <NuxtLink to="/schedule-queue" class="queue-link">작업 큐 →</NuxtLink>
+        <NuxtLink to="/jobs" class="queue-link">작업 현황 →</NuxtLink>
       </div>
       <WDataTable v-if="workRows.length" :columns="workCols" :rows="workRows">
         <template #actions><span class="muted mono">—</span></template>

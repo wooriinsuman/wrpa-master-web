@@ -3,9 +3,9 @@ import { NAV } from './nav'
 import { RANK_USER, RANK_ADMIN, RANK_SYSTEM } from './roles'
 
 describe('NAV', () => {
-  it('has 14 items with unique routes and 2-char codes', () => {
-    expect(NAV).toHaveLength(14)
-    expect(new Set(NAV.map(n => n.route)).size).toBe(14)
+  it('has 13 items with unique routes and 2-char codes', () => {
+    expect(NAV).toHaveLength(13)
+    expect(new Set(NAV.map(n => n.route)).size).toBe(13)
     for (const n of NAV) expect(n.code).toHaveLength(2)
   })
 })
@@ -15,9 +15,9 @@ describe('NAV minRank gating', () => {
     NAV.filter(n => level >= (n.minRank ?? 0)).map(n => n.route).sort()
 
   it('level 10 (user) sees only the USER-rank routes', () => {
-    // /jobs = /works monitoring (SYSTEM-only backend), so NOT visible to USER.
+    // 작업 현황(/jobs) = 진행 작업 + 작업 큐 통합, 조회는 USER 이상(백엔드 WithCompanyScope).
     expect(visibleRoutes(RANK_USER)).toEqual(
-      ['/', '/accounts', '/order-policies', '/schedule-queue'].sort(),
+      ['/', '/accounts', '/order-policies', '/jobs'].sort(),
     )
   })
 
@@ -29,7 +29,6 @@ describe('NAV minRank gating', () => {
     expect(routes).not.toContain('/workers')
     expect(routes).not.toContain('/packages')
     expect(routes).not.toContain('/insurers')
-    expect(routes).not.toContain('/jobs') // SYSTEM-only works monitoring
   })
 
   it('level 30 (system) sees every route', () => {

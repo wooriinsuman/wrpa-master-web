@@ -15,9 +15,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // 대시보드는 리다이렉트 안전지대 — 역할이 없는(rank 0) 사용자도 반드시 접근 가능해야
       // 라우트 가드가 self-redirect 루프에 빠지지 않는다. 따라서 minRank 0(전원).
       { id: 'dashboard', code: 'DB', label: '대시보드', route: '/', minRank: 0 },
-      // 진행 작업 = /works 모니터링, 백엔드에서 /works는 SYSTEM 전용 → 메뉴도 SYSTEM.
-      { id: 'jobs', code: 'JB', label: '진행 작업', route: '/jobs', minRank: RANK_SYSTEM },
-      { id: 'schedulequeue', code: 'SQ', label: '작업 큐', route: '/schedule-queue', minRank: RANK_USER },
+      // 작업 현황 = 진행 작업 + 작업 큐 통합. 조회는 USER 이상(ADMIN 이하는
+      // 자기 회사만 — 백엔드 WithCompanyScope + CompanyRef 필터), 우선순위
+      // 조정·취소·수동 실행만 SYSTEM.
+      { id: 'works', code: 'WS', label: '작업 현황', route: '/jobs', minRank: RANK_USER },
     ],
   },
   {

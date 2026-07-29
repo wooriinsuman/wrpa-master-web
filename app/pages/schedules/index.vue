@@ -274,7 +274,7 @@ async function submitCopy() {
 <template>
   <WCrudPage
     title="작업 일정"
-    desc="등록된 일정은 매일 17:00에 다음날 작업으로 자동 생성됩니다 — 생성된 큐는 '작업 큐'에서 확인/조정"
+    desc="등록된 일정은 매일 17:00에 다음날 작업으로 자동 생성됩니다 — 생성된 작업은 '작업 현황'에서 확인/조정"
     add-label="+ 일정 등록"
     empty-title="작업 일정이 없습니다"
     :drawer-title="editingId ? '일정 수정' : '일정 등록'"

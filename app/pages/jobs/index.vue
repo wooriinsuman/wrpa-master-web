@@ -326,7 +326,7 @@ const resultText = computed(() =>
 <style scoped>
 /* .fld / .act come from the global DS (assets/css/components.css). */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
-/* .hd-field: 헤더 필터 컨트롤 — 삭제 예정인 작업 큐 화면에서 가져온 스타일. */
+/* .hd-field: 헤더 필터 컨트롤 스타일 (구 작업 큐 화면에서 이식). */
 .hd-field { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font-mono); font-size: 12.5px; background: var(--th); color: var(--ink); }
 .sum { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--th); font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
 .sum-sep { color: var(--line); }
