@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell, StatusKind } from '~/utils/status'
+import type { ScheduleQueueEntry } from '~/composables/useScheduleQueue'
 import { categoryLabel } from '~/utils/category'
 import { extractApiError } from '~/utils/apiError'
 
-type Entry = components['schemas']['ScheduleQueueEntry']
+type Entry = ScheduleQueueEntry
 
 interface QueueRow {
   idx: number

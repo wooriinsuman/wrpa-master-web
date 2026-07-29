@@ -817,11 +817,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List works, newest first (paginated; default 200, max 1000) */
+        /** 작업 현황 목록 (claim 순서 priority DESC, seq; 기본 200건, 최대 1000) */
         get: operations["ListWorks"];
         put?: never;
         /** Enqueue a work (dev) */
         post: operations["CreateWork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/works/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 작업 현황 상단 요약 (state 분포 + 영업일). state 필터는 무시된다 */
+        get: operations["GetWorkSummary"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -919,23 +936,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["SyncHolidays"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/schedule/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 해당 날짜의 작업 큐 (선생성분 실물 / 미생성 미래는 시뮬레이션) */
-        get: operations["GetScheduleQueue"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1544,40 +1544,39 @@ export interface components {
             result?: {
                 [key: string]: unknown;
             } | null;
+            /** @description 배정된 워커 id — pending이면 빈 문자열 */
+            workerId?: string;
+            priority?: number;
+            createType?: string;
+            /** @description YYYY-MM */
+            closingMonth?: string;
+            /** @description YYYY-MM-DD */
+            workDate?: string;
+            /** @description HH:MM */
+            workTime?: string;
+            retriedCount?: number;
+            accountId?: string;
+            /** @description account_id가 빈 work는 빈 문자열 */
+            accountName?: string;
+            /** @description pending 행에만 의미 있음 — 지금 이 작업을 가져갈 수 있는 워커 수 */
+            eligibleWorkerCount?: number;
+            /**
+             * @description pending 행에만 채워진다. 예측이 아니라 지금 claim을 막고 있는 조건
+             * @enum {string}
+             */
+            waitReason?: "no_worker" | "account_locked" | "not_yet" | "account_busy" | "ready";
+        };
+        WorkSummaryView: {
+            pending: number;
+            started: number;
+            done: number;
+            failed: number;
+            cancel: number;
+            /** @description 해당 날짜의 영업일 N일차. 휴일 조회 실패 시 주말-only 폴백 */
+            businessDay: number;
         };
         UpdateWorkPriorityRequest: {
             priority: number;
-        };
-        ScheduleQueueEntry: {
-            /** @description 시뮬레이션이면 없음 */
-            workId?: string;
-            jobId: string;
-            companyId: string;
-            insuranceCompanyCode: string;
-            accountId: string;
-            category: string;
-            closingMonth: string;
-            runTime: string;
-            priority: number;
-            tasks: string[];
-            /** @enum {string} */
-            status: "planned" | "pending" | "started" | "done" | "cancel" | "failed";
-            eligibleWorkerIds: string[];
-        };
-        ScheduleQueueWorkerView: {
-            workerId: string;
-            name: string;
-            /** @description entries 배열 인덱스, 우선순위 순 */
-            entryIndexes: number[];
-        };
-        ScheduleQueueView: {
-            date: string;
-            /** @description 0 = 휴일 */
-            businessDay: number;
-            /** @description true = 선생성 전 날짜의 시뮬레이션 */
-            simulated: boolean;
-            entries: components["schemas"]["ScheduleQueueEntry"][];
-            workers: components["schemas"]["ScheduleQueueWorkerView"][];
         };
         DataTypeView: {
             code: string;
@@ -3235,6 +3234,17 @@ export interface operations {
     ListWorks: {
         parameters: {
             query?: {
+                /** @description YYYY-MM-DD, 생략 시 오늘 */
+                date?: string;
+                state?: string;
+                createType?: "Manual" | "Immediately" | "Scheduled";
+                /** @description 보험사 코드 */
+                company?: string;
+                category?: string;
+                /** @description 배정된 작업 + 이 워커가 가져갈 수 있는 대기 작업 */
+                workerId?: string;
+                /** @description 거래처(GA) company_id — SYSTEM 미만은 미들웨어가 주입 */
+                companyId?: string;
                 page?: number;
                 size?: number;
             };
@@ -3253,6 +3263,9 @@ export interface operations {
                     "application/json": components["schemas"]["WorkView"][];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     CreateWork: {
@@ -3278,6 +3291,36 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+        };
+    };
+    GetWorkSummary: {
+        parameters: {
+            query?: {
+                date?: string;
+                createType?: string;
+                company?: string;
+                category?: string;
+                workerId?: string;
+                companyId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ok */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkSummaryView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     UpdateWorkPriority: {
@@ -3496,31 +3539,6 @@ export interface operations {
                     "application/json": components["schemas"]["SyncHolidaysResponse"];
                 };
             };
-        };
-    };
-    GetScheduleQueue: {
-        parameters: {
-            query?: {
-                /** @description YYYY-MM-DD, 기본 오늘(KST) */
-                date?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 해당 날짜의 작업 큐 (선생성분 실물 / 미생성 미래는 시뮬레이션) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleQueueView"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
         };
     };
     ListOrderPolicies: {
