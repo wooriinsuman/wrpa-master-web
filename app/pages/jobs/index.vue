@@ -2,11 +2,12 @@
 import { computed, ref } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
-import { WORK_LIST_LIMIT, type WorkListParams } from '~/composables/useWorks'
+import { WORK_LIST_LIMIT, type WorkListParams, type WorkSummaryParams } from '~/composables/useWorks'
 import { isStatusCell, type StatusCell } from '~/utils/status'
 import { workStateKind } from '~/utils/dashboardState'
 import { waitReasonCell } from '~/utils/waitReason'
 import { categoryLabel } from '~/utils/category'
+import { shortId } from '~/utils/idLabel'
 import { blankWorkForm, type WorkForm } from '~/utils/workForm'
 import { extractApiError } from '~/utils/apiError'
 
@@ -17,14 +18,17 @@ interface WorkRow {
   status: StatusCell
   waitReason: StatusCell | string
   company: string
+  // 표시용 이름(못 찾으면 줄인 id)과, 툴팁으로 내보낼 원본 id를 분리해 둔다.
   account: string
+  accountId: string
   category: string
   closingMonth: string
   runTime: string
   tasks: string
   priority: number
-  // pending이면 자격 워커 후보 수(0이면 사고 배지), 아니면 실제 배정된 워커 id.
+  // pending이면 자격 워커 후보 수(0이면 사고 배지), 아니면 배정된 워커 이름.
   worker: StatusCell | string
+  workerId: string
   retried: number
   createType: string
   _src: WorkView
@@ -32,6 +36,7 @@ interface WorkRow {
 
 const works = useWorks()
 const workers = useWorkers()
+const accounts = useAccounts()
 const insurers = useInsurers()
 const dataTypes = useDataTypes()
 const { push } = useToast()
@@ -69,18 +74,38 @@ const { data, pending, refresh } = await useAsyncData(
 // 상한에 정확히 닿았다 = 더 있을 수 있다. 요약은 페이징 없이 그날 전량을 세므로,
 // 알리지 않으면 "대기 480"이라 써 놓고 표에는 1000행만 그리는 화면이 된다.
 const truncated = computed(() => (data.value?.length ?? 0) >= WORK_LIST_LIMIT)
-// 요약은 상태 분포 자체라 state 필터를 빼고 조회한다(백엔드도 무시한다).
+// 요약은 상태 분포 자체라 state를 아예 받지 않는다(WorkSummaryParams가 타입으로
+// 막는다) — 나머지 필터만 그대로 넘긴다.
+const summaryParams = computed<WorkSummaryParams>(() => ({
+  date: date.value,
+  createType: createType.value,
+  company: company.value,
+  workerId: workerId.value,
+}))
 const { data: sum, refresh: refreshSummary } = await useAsyncData(
-  'works-summary', () => works.summary({ ...params.value, state: undefined }), { watch: [params] },
+  'works-summary', () => works.summary(summaryParams.value), { watch: [summaryParams] },
 )
 const { data: workerList } = await useAsyncData(
   'works-workers', () => authStore.isSystem ? workers.list() : Promise.resolve([]),
 )
+// 계정 목록은 회사 스코프 읽기 권한 묶음에 있어 USER도 조회할 수 있다 —
+// 표의 '계정' 칸을 uuid가 아니라 이름으로 그리는 유일한 수단이다(백엔드는
+// accountName을 pending 행에만 채워 준다).
+const { data: accountList } = await useAsyncData('works-accounts', () => accounts.list())
 const { data: insurerList } = await useAsyncData('works-insurers', () => insurers.list())
 const { data: dtData } = await useAsyncData('works-datatypes', () => dataTypes.list())
 
 const dataTypeNames = computed<Record<string, string>>(() =>
   Object.fromEntries((dtData.value ?? []).map(d => [d.code, d.name])))
+// id → 이름. 이름이 빈 레코드는 아예 담지 않는다 — 빈 문자열을 "이름"으로
+// 취급하면 없는 이름을 찾은 척하게 된다.
+function nameMap(list: { id: string; name?: string }[] | null): Record<string, string> {
+  return Object.fromEntries(list?.filter(x => x.name).map(x => [x.id, x.name!]) ?? [])
+}
+const accountNames = computed(() => nameMap(accountList.value ?? null))
+// GET /workers는 SYSTEM 전용이라 그 미만에게는 이 맵이 항상 비어 있다 — 워커
+// 칸은 줄인 id로 떨어진다(아래 workerLabel).
+const workerNames = computed(() => nameMap(workerList.value ?? null))
 
 async function refreshAll() {
   await Promise.all([refresh(), refreshSummary()])
@@ -105,9 +130,25 @@ const CREATE_TYPE_LABEL: Record<string, string> = {
 // 워커 칸의 두 얼굴: 대기 행은 "지금 이걸 가져갈 수 있는 워커 수", 그 외는 실제
 // 배정 워커. 후보 0은 영원히 실행되지 않는다는 뜻이라 숫자가 아니라 사고로 알린다.
 function workerCell(w: WorkView): StatusCell | string {
-  if (w.state !== 'pending') return w.workerId || '—'
+  if (w.state !== 'pending') return workerLabel(w.workerId)
   const n = w.eligibleWorkerCount ?? 0
   return n === 0 ? { label: '자격 워커 없음', kind: 'fail' } : `후보 ${n}`
+}
+
+// 워커 이름 → 없으면 줄인 id. 지어낸 이름은 절대 쓰지 않는다: 목록을 못 읽는
+// USER/ADMIN에게는 "test-worker-001"이 아니라 "e60aa178…"이 보이고, 전체 값은
+// 셀의 title에 남는다.
+function workerLabel(id: string | undefined): string {
+  if (!id) return '—'
+  return workerNames.value[id] ?? shortId(id)
+}
+
+// 계정 칸: 목록에서 찾은 이름 → 백엔드가 준 accountName(pending 행에만 채워진다)
+// → 줄인 id 순. 운영자에게 36자 uuid가 기본 화면이 되는 일은 없어야 한다.
+function accountLabel(w: WorkView): string {
+  const id = w.accountId
+  if (!id) return w.accountName || '—'
+  return accountNames.value[id] ?? (w.accountName || shortId(id))
 }
 
 const rows = computed<WorkRow[]>(() => {
@@ -116,13 +157,15 @@ const rows = computed<WorkRow[]>(() => {
     status: { label: STATE_LABEL[w.state] ?? w.state, kind: workStateKind(w.state) },
     waitReason: waitReasonCell(w.waitReason, w.state) ?? '—',
     company: w.company,
-    account: w.accountName || w.accountId || '—',
+    account: accountLabel(w),
+    accountId: w.accountId ?? '',
     category: w.category ? categoryLabel(w.category, dataTypeNames.value) : '—',
     closingMonth: w.closingMonth || '—',
     runTime: w.workTime || '—',
     tasks: (w.tasks ?? []).join(', ') || '—',
     priority: w.priority ?? 0,
     worker: workerCell(w),
+    workerId: w.workerId ?? '',
     retried: w.retriedCount ?? 0,
     createType: CREATE_TYPE_LABEL[w.createType ?? ''] ?? (w.createType || '—'),
     _src: w,
@@ -173,14 +216,32 @@ async function savePriority(w: WorkView) {
     await refreshAll()
   } catch (err: any) {
     push(extractApiError(err, '변경에 실패했습니다. (대기 중 작업만 조정 가능)'), 'error')
+  } finally {
+    // 초안을 지우지 않으면 서버가 거부한 값(예: 이미 pending이 아니라 409)이
+    // 입력칸에 그대로 남고, 이후 새로고침해도 초안이 서버 값을 계속 덮어써
+    // 운영자는 실제 우선순위를 영영 볼 수 없다. 성공했으면 refreshAll()이 이미
+    // 새 값을 가져왔으므로 어느 쪽이든 지우는 게 맞다.
+    delete editing.value[w.id]
   }
 }
 
-async function cancelWork(w: WorkView) {
-  if (!confirm('이 작업을 취소할까요?')) return
+// 취소 확인. 네이티브 confirm() 대신 DS의 WConfirm을 쓴다 — 다이얼로그를 닫으면
+// (@confirm이 오지 않으므로) 작업은 그대로 남는다.
+const cancelOpen = ref(false)
+const cancelTarget = ref<WorkView | null>(null)
+function askCancel(w: WorkView) {
+  cancelTarget.value = w
+  cancelOpen.value = true
+}
+async function confirmCancel() {
+  const w = cancelTarget.value
+  cancelTarget.value = null
+  if (!w) return
   try {
     await works.cancel(w.id)
     push('취소되었습니다.', 'success')
+    // cancel은 멱등이라 200이 "정말 취소됐다"를 뜻하지 않는다 — 목록을 다시 읽어
+    // 실제 상태를 보여준다.
     await refreshAll()
   } catch (err: any) {
     push(extractApiError(err, '취소에 실패했습니다.'), 'error')
@@ -274,9 +335,13 @@ const resultText = computed(() =>
         <WStatusBadge v-if="isStatusCell(row.waitReason)" :label="row.waitReason.label" :kind="row.waitReason.kind" />
         <span v-else>{{ row.waitReason }}</span>
       </template>
+      <!-- 이름을 못 찾아 id를 줄여 보여준 칸에서도 전체 값은 확인할 수 있어야 한다. -->
+      <template #cell-account="{ row }">
+        <span :title="(row as WorkRow).accountId || undefined">{{ row.account }}</span>
+      </template>
       <template #cell-worker="{ row }">
         <WStatusBadge v-if="isStatusCell(row.worker)" :label="row.worker.label" :kind="row.worker.kind" />
-        <span v-else>{{ row.worker }}</span>
+        <span v-else :title="(row as WorkRow).workerId || undefined">{{ row.worker }}</span>
       </template>
       <template #actions="{ row }">
         <template v-if="authStore.isSystem && (row as WorkRow)._src.state === 'pending'">
@@ -286,7 +351,7 @@ const resultText = computed(() =>
             @input="onPriorityInput((row as WorkRow)._src, $event)"
             @change="savePriority((row as WorkRow)._src)"
           />
-          <button class="act act--danger" @click="cancelWork((row as WorkRow)._src)">취소</button>
+          <button class="act act--danger" @click="askCancel((row as WorkRow)._src)">취소</button>
         </template>
         <span v-else class="muted">—</span>
       </template>
@@ -300,6 +365,16 @@ const resultText = computed(() =>
       v-else
       title="이 날짜의 작업이 아직 생성되지 않았습니다"
       :message="pending ? '불러오는 중…' : '선생성은 매일 17:00에 다음날 분을 만듭니다.'"
+    />
+
+    <!-- 확인 버튼 라벨을 '취소'로 두면 두 버튼이 모두 '취소'가 돼 어느 쪽이
+         작업을 취소하는지 알 수 없다 — 닫기/작업 취소로 갈라 놓는다. -->
+    <WConfirm
+      v-model:open="cancelOpen"
+      title="이 작업을 취소할까요?"
+      message="대기 중이거나 실행 중인 작업이 취소 상태로 바뀝니다. 되돌리려면 다시 실행해야 합니다."
+      confirm-label="작업 취소" cancel-label="닫기"
+      @confirm="confirmCancel"
     />
 
     <WDrawer v-model:open="enqueueOpen" title="작업 실행" description="보험사 코드와 태스크를 입력해 작업을 실행하세요.">
