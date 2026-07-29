@@ -1,5 +1,6 @@
 // @vitest-environment nuxt
 import { describe, it, expect } from 'vitest'
+import { h } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import WDataTable from './WDataTable.vue'
 
@@ -25,6 +26,19 @@ describe('WDataTable', () => {
     })
     expect(el.text()).toContain('act-SS-001')
   })
+  it('emits rowClick for a row body click but not for a click inside the actions cell', async () => {
+    const rows = [{ status: '활성', name: '삼성화재', code: 'SS-001' }]
+    const el = await mountSuspended(WDataTable, {
+      props: { columns, rows },
+      slots: { actions: () => h('button', { class: 'act' }, '취소') },
+    })
+    await el.find('.dt-row .dt-td').trigger('click')
+    expect(el.emitted('rowClick')?.length).toBe(1)
+    // 액션 셀은 propagation을 멈춘다 — 우선순위 입력/취소가 행 클릭을 겸하면 안 된다.
+    await el.find('.dt-actions button').trigger('click')
+    expect(el.emitted('rowClick')?.length).toBe(1)
+  })
+
   it('renders a StatusCell with its explicit kind', async () => {
     const cols = [{ key: 'status', label: '상태', kind: 'status' as const }]
     const rows = [{ status: { label: '대기', kind: 'fail' } }]

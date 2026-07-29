@@ -29,7 +29,15 @@ const props = defineProps<{
   indexColumn?: boolean
   // Opt-in checkbox column for multi-select (bulk actions). Off by default.
   selectable?: boolean
+  // Opt-in affordance for @row-click (pointer cursor). The event is always
+  // emitted; this only tells the user the row is clickable.
+  rowClickable?: boolean
 }>()
+
+// Whole-row click, for pages whose "detail" is a read-only drawer rather than a
+// per-row button. The actions cell stops propagation so its controls (inline
+// inputs, 취소 …) never double as a row click.
+const emit = defineEmits<{ rowClick: [row: Record<string, any>] }>()
 
 // Multi-column sort state, highest priority first. Empty = show source order.
 const sorts = ref<Sort[]>([])
@@ -137,7 +145,7 @@ function toggleAll() {
       <div v-if="displayRows.length === 0" class="dt-empty">
         <slot name="empty">데이터가 없습니다.</slot>
       </div>
-      <div v-for="(row, i) in displayRows" :key="i" class="dt-row">
+      <div v-for="(row, i) in displayRows" :key="i" class="dt-row" :class="{ 'dt-row--clickable': rowClickable }" @click="emit('rowClick', row)">
         <div v-if="selectable" class="dt-td dt-td--sel">
           <input type="checkbox" :checked="selected.includes(row.id)" @change="toggleOne(row.id)" />
         </div>
@@ -168,7 +176,7 @@ function toggleAll() {
             <span v-else>{{ row[c.key] }}</span>
           </slot>
         </div>
-        <div class="dt-td dt-actions"><slot name="actions" :row="row" /></div>
+        <div class="dt-td dt-actions" @click.stop><slot name="actions" :row="row" /></div>
       </div>
     </div>
   </div>
@@ -192,6 +200,7 @@ function toggleAll() {
 .dt-row { display: flex; align-items: center; border-top: 1px solid var(--line); transition: background .15s ease; }
 .dt-row:first-child { border-top: none; }
 .dt-row:hover { background: var(--th); }
+.dt-row--clickable { cursor: pointer; }
 .dt-td { flex: 1; min-width: 0; padding: 11px 16px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); text-align: center; }
 .dt-td--mono { font-family: var(--font-mono); }
 .dt-td--muted { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); }

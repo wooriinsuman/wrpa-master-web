@@ -15,6 +15,7 @@ describe('dashboardState', () => {
     expect(workStateKind('done')).toBe('done')
     expect(workStateKind('pending')).toBe('idle')
     expect(workStateKind('cancel')).toBe('fail')
+    expect(workStateKind('failed')).toBe('fail')
   })
   it('formats heartbeat age', () => {
     expect(formatAge(undefined, 1000)).toBe('—')

@@ -10,8 +10,10 @@ export function workerStateKind(state: string): StatusKind {
   return WORKER_KIND[state?.toLowerCase()] ?? 'idle'
 }
 
+// work.State* 전부를 덮는다 — 'failed'가 빠져 있으면 재시도 예산을 소진해 끝난
+// 작업이 대시보드에서 idle(회색)로 보이고 실패 카운트에서도 빠진다.
 const WORK_KIND: Record<string, StatusKind> = {
-  started: 'run', done: 'done', pending: 'idle', cancel: 'fail',
+  started: 'run', done: 'done', pending: 'idle', cancel: 'fail', failed: 'fail',
 }
 export function workStateKind(state: string): StatusKind {
   return WORK_KIND[state?.toLowerCase()] ?? 'idle'

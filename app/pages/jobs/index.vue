@@ -1,47 +1,182 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
-import type { StatusCell } from '~/utils/status'
+import type { WorkListParams } from '~/composables/useWorks'
+import { isStatusCell, type StatusCell } from '~/utils/status'
 import { workStateKind } from '~/utils/dashboardState'
-import { blankWorkForm, type WorkForm } from '~/utils/workForm'
+import { waitReasonCell } from '~/utils/waitReason'
 import { categoryLabel } from '~/utils/category'
+import { blankWorkForm, type WorkForm } from '~/utils/workForm'
+import { extractApiError } from '~/utils/apiError'
 
 type WorkView = components['schemas']['WorkView']
-interface WorkRow { id: string; status: StatusCell; company: string; tasks: string; state: string; category: string }
+
+interface WorkRow {
+  id: string
+  status: StatusCell
+  waitReason: StatusCell | string
+  company: string
+  account: string
+  category: string
+  closingMonth: string
+  runTime: string
+  tasks: string
+  priority: number
+  // pending이면 자격 워커 후보 수(0이면 사고 배지), 아니면 실제 배정된 워커 id.
+  worker: StatusCell | string
+  retried: number
+  createType: string
+  _src: WorkView
+}
 
 const works = useWorks()
+const workers = useWorkers()
+const insurers = useInsurers()
 const dataTypes = useDataTypes()
 const { push } = useToast()
-// POST/GET /works는 백엔드에서 RankSystem 전용이다(RankAdmin이 아님 — app.go의
-// "Work enqueue/list — SYSTEM-only" 라우트 그룹 참고) — 실행 버튼은 SYSTEM에게만 노출한다.
+// 이 화면은 USER까지 열려 있다(GET /works는 회사 스코프로 걸러진다). 하지만
+// enqueue(POST /works)·priority·cancel은 RankSystem 전용이고, GET /workers도
+// RankSystem 전용이다 — 워커 목록은 아예 조회하지 않는다(USER는 403).
 const authStore = useAuthStore()
-const { data, refresh, pending } = await useAsyncData('works', () => works.list())
+
+// 로컬(운영자 = KST) 기준 오늘. toISOString()은 UTC라 09:00 이전에는 어제를
+// 가리킨다 — "오늘 작업"이 화면의 전제이므로 로컬 날짜로 만든다.
+function today(): string {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+const date = ref(today())
+const state = ref('')
+const createType = ref('')
+const company = ref('')
+const workerId = ref('')
+const search = ref('')
+
+const params = computed<WorkListParams>(() => ({
+  date: date.value,
+  state: state.value,
+  createType: createType.value,
+  company: company.value,
+  workerId: workerId.value,
+}))
+
+const { data, pending, refresh } = await useAsyncData(
+  'works', () => works.list(params.value), { watch: [params] },
+)
+// 요약은 상태 분포 자체라 state 필터를 빼고 조회한다(백엔드도 무시한다).
+const { data: sum, refresh: refreshSummary } = await useAsyncData(
+  'works-summary', () => works.summary({ ...params.value, state: undefined }), { watch: [params] },
+)
+const { data: workerList } = await useAsyncData(
+  'works-workers', () => authStore.isSystem ? workers.list() : Promise.resolve([]),
+)
+const { data: insurerList } = await useAsyncData('works-insurers', () => insurers.list())
 const { data: dtData } = await useAsyncData('works-datatypes', () => dataTypes.list())
+
 const dataTypeNames = computed<Record<string, string>>(() =>
   Object.fromEntries((dtData.value ?? []).map(d => [d.code, d.name])))
 
-const search = ref('')
+async function refreshAll() {
+  await Promise.all([refresh(), refreshSummary()])
+}
+
+const summaryItems = computed<string[]>(() => {
+  const s = sum.value
+  if (!s) return []
+  return [
+    `대기 ${s.pending}`, `실행 ${s.started}`, `성공 ${s.done}`,
+    `실패 ${s.failed}`, `취소 ${s.cancel}`, `영업일 ${s.businessDay}일차`,
+  ]
+})
+
+const STATE_LABEL: Record<string, string> = {
+  pending: '대기', started: '실행중', done: '성공', failed: '실패', cancel: '취소',
+}
+const CREATE_TYPE_LABEL: Record<string, string> = {
+  Scheduled: '예약', Manual: '수동', Immediately: '즉시',
+}
+
+// 워커 칸의 두 얼굴: 대기 행은 "지금 이걸 가져갈 수 있는 워커 수", 그 외는 실제
+// 배정 워커. 후보 0은 영원히 실행되지 않는다는 뜻이라 숫자가 아니라 사고로 알린다.
+function workerCell(w: WorkView): StatusCell | string {
+  if (w.state !== 'pending') return w.workerId || '—'
+  const n = w.eligibleWorkerCount ?? 0
+  return n === 0 ? { label: '자격 워커 없음', kind: 'fail' } : `후보 ${n}`
+}
+
 const rows = computed<WorkRow[]>(() => {
   const list: WorkRow[] = (data.value ?? []).map(w => ({
     id: w.id,
-    status: { label: w.state, kind: workStateKind(w.state) } as StatusCell,
+    status: { label: STATE_LABEL[w.state] ?? w.state, kind: workStateKind(w.state) },
+    waitReason: waitReasonCell(w.waitReason, w.state) ?? '—',
     company: w.company,
+    account: w.accountName || w.accountId || '—',
+    category: w.category ? categoryLabel(w.category, dataTypeNames.value) : '—',
+    closingMonth: w.closingMonth || '—',
+    runTime: w.workTime || '—',
     tasks: (w.tasks ?? []).join(', ') || '—',
-    state: w.state,
-    category: categoryLabel(w.category ?? '', dataTypeNames.value),
+    priority: w.priority ?? 0,
+    worker: workerCell(w),
+    retried: w.retriedCount ?? 0,
+    createType: CREATE_TYPE_LABEL[w.createType ?? ''] ?? (w.createType || '—'),
+    _src: w,
   }))
   const q = search.value.trim().toLowerCase()
-  return q ? list.filter(r => [r.company, r.state, r.tasks].some(x => String(x).toLowerCase().includes(q))) : list
+  if (!q) return list
+  return list.filter(r => [r.company, r.account, r.tasks, r.category, r.status.label]
+    .some(x => String(x).toLowerCase().includes(q)))
 })
 
+// 서버가 준 순서가 곧 claim 소진 순서(priority DESC, seq)다 — 헤더 클릭 정렬로
+// 흐트러지면 "이 순서대로 소진된다"는 화면의 의미 자체가 사라진다.
 const columns: Column[] = [
-  { key: 'status', label: '상태', kind: 'status' },
-  { key: 'company', label: '보험사', kind: 'mono' },
-  { key: 'category', label: '카테고리', kind: 'mono' },
-  { key: 'tasks', label: '태스크', kind: 'text' },
-  { key: 'id', label: '실행 ID', kind: 'muted' },
+  { key: 'status', label: '상태', kind: 'status', sortable: false },
+  { key: 'waitReason', label: '대기사유', kind: 'status', sortable: false },
+  { key: 'company', label: '보험사', kind: 'mono', sortable: false },
+  { key: 'account', label: '계정', kind: 'text', sortable: false },
+  { key: 'category', label: '카테고리', kind: 'text', sortable: false },
+  { key: 'closingMonth', label: '업적월', kind: 'mono', sortable: false },
+  { key: 'runTime', label: '실행시각', kind: 'mono', sortable: false },
+  { key: 'tasks', label: 'tasks', kind: 'text', sortable: false },
+  { key: 'priority', label: '우선순위', kind: 'mono', sortable: false },
+  { key: 'worker', label: '워커', kind: 'mono', sortable: false },
+  { key: 'retried', label: '시도', kind: 'mono', sortable: false },
+  { key: 'createType', label: '생성', kind: 'muted', sortable: false },
 ]
+
+// priority 인라인 수정: pending만 (백엔드가 409로 방어하지만 UI에서도 막는다)
+const editing = ref<Record<string, number>>({})
+function priorityDraft(w: WorkView): number {
+  return editing.value[w.id] !== undefined ? editing.value[w.id]! : (w.priority ?? 0)
+}
+function onPriorityInput(w: WorkView, ev: Event) {
+  editing.value[w.id] = Number((ev.target as HTMLInputElement).value)
+}
+async function savePriority(w: WorkView) {
+  const p = editing.value[w.id]
+  if (p === undefined || p === w.priority) return
+  try {
+    await works.setPriority(w.id, p)
+    push('우선순위가 변경되었습니다.', 'success')
+    await refreshAll()
+  } catch (err: any) {
+    push(extractApiError(err, '변경에 실패했습니다. (대기 중 작업만 조정 가능)'), 'error')
+  }
+}
+
+async function cancelWork(w: WorkView) {
+  if (!confirm('이 작업을 취소할까요?')) return
+  try {
+    await works.cancel(w.id)
+    push('취소되었습니다.', 'success')
+    await refreshAll()
+  } catch (err: any) {
+    push(extractApiError(err, '취소에 실패했습니다.'), 'error')
+  }
+}
 
 // enqueue drawer
 const enqueueOpen = ref(false)
@@ -54,18 +189,18 @@ async function submitEnqueue() {
   try {
     await works.enqueue(form.value)
     enqueueOpen.value = false
-    await refresh()
+    await refreshAll()
     push('작업을 실행했습니다.', 'success')
   } catch (e: any) {
     push(e?.message ?? '작업 실행에 실패했습니다.', 'error')
   }
 }
 
-// result drawer (read-only)
+// result drawer (read-only) — 행 아무 곳이나 클릭하면 열린다.
 const resultOpen = ref(false)
 const selected = ref<WorkView | null>(null)
-function openResult(row: WorkRow) {
-  selected.value = (data.value ?? []).find(w => w.id === row.id) ?? null
+function openResult(row: Record<string, any>) {
+  selected.value = (row as WorkRow)._src
   resultOpen.value = true
 }
 const paramsText = computed(() => selected.value?.parameters || '—')
@@ -76,16 +211,76 @@ const resultText = computed(() =>
 
 <template>
   <section class="panel">
-    <WPageHeader title="진행 작업" desc="실행 중·완료된 작업" :add-label="authStore.isSystem ? '+ 작업 실행' : undefined"
-      v-model:search="search" @add="openEnqueue" @refresh="refresh" />
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows">
+    <WPageHeader
+      title="작업 현황" desc="선택한 날짜의 작업을 소진 순서(우선순위 → 생성순)대로 보여줍니다"
+      :add-label="authStore.isSystem ? '+ 작업 실행' : undefined"
+      v-model:search="search" @add="openEnqueue" @refresh="refreshAll"
+    >
+      <template #header-actions>
+        <input v-model="date" type="date" class="hd-field" aria-label="작업일" />
+        <select v-model="state" class="hd-field f-state" aria-label="상태">
+          <option value="">상태 전체</option>
+          <option value="pending">대기</option>
+          <option value="started">실행중</option>
+          <option value="done">성공</option>
+          <option value="failed">실패</option>
+          <option value="cancel">취소</option>
+        </select>
+        <select v-model="createType" class="hd-field f-create" aria-label="생성구분">
+          <option value="">생성 전체</option>
+          <option value="Scheduled">예약</option>
+          <option value="Manual">수동</option>
+          <option value="Immediately">즉시</option>
+        </select>
+        <select v-model="company" class="hd-field f-company" aria-label="보험사">
+          <option value="">보험사 전체</option>
+          <option v-for="c in insurerList ?? []" :key="c.id" :value="c.code">{{ c.name }}</option>
+        </select>
+        <!-- GET /workers는 SYSTEM 전용이다 — 그 미만에게는 조회도 노출도 하지 않는다. -->
+        <select v-if="authStore.isSystem" v-model="workerId" class="hd-field f-worker" aria-label="워커">
+          <option value="">워커 전체</option>
+          <option v-for="w in workerList ?? []" :key="w.id" :value="w.id">{{ w.name || w.id }}</option>
+        </select>
+      </template>
+    </WPageHeader>
+
+    <div v-if="summaryItems.length" class="sum">
+      <template v-for="(s, i) in summaryItems" :key="s">
+        <span v-if="i" class="sum-sep">·</span>
+        <span class="sum-item">{{ s }}</span>
+      </template>
+    </div>
+
+    <WDataTable
+      v-if="rows.length" :columns="columns" :rows="rows" :actions-width="190"
+      row-clickable @row-click="openResult"
+    >
+      <template #cell-waitReason="{ row }">
+        <WStatusBadge v-if="isStatusCell(row.waitReason)" :label="row.waitReason.label" :kind="row.waitReason.kind" />
+        <span v-else>{{ row.waitReason }}</span>
+      </template>
+      <template #cell-worker="{ row }">
+        <WStatusBadge v-if="isStatusCell(row.worker)" :label="row.worker.label" :kind="row.worker.kind" />
+        <span v-else>{{ row.worker }}</span>
+      </template>
       <template #actions="{ row }">
-        <button class="act act--ghost" @click="openResult(row as WorkRow)">결과</button>
+        <template v-if="authStore.isSystem && (row as WorkRow)._src.state === 'pending'">
+          <input
+            type="number" class="mono pr-input"
+            :value="priorityDraft((row as WorkRow)._src)"
+            @input="onPriorityInput((row as WorkRow)._src, $event)"
+            @change="savePriority((row as WorkRow)._src)"
+          />
+          <button class="act act--danger" @click="cancelWork((row as WorkRow)._src)">취소</button>
+        </template>
+        <span v-else class="muted">—</span>
       </template>
     </WDataTable>
-    <WEmptyState v-else title="진행 중인 작업이 없습니다"
-      :message="pending ? '불러오는 중…' : '작업을 실행하면 여기에 표시됩니다.'"
-      :cta-label="authStore.isSystem ? '+ 작업 실행' : undefined" @cta="openEnqueue" />
+    <WEmptyState
+      v-else
+      title="이 날짜의 작업이 아직 생성되지 않았습니다"
+      :message="pending ? '불러오는 중…' : '선생성은 매일 17:00에 다음날 분을 만듭니다.'"
+    />
 
     <WDrawer v-model:open="enqueueOpen" title="작업 실행" description="보험사 코드와 태스크를 입력해 작업을 실행하세요.">
       <label class="fld"><span>보험사 코드 <span class="req">*</span></span><input v-model="form.company" placeholder="samsung_property" /></label>
@@ -111,5 +306,11 @@ const resultText = computed(() =>
 <style scoped>
 /* .fld / .act come from the global DS (assets/css/components.css). */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
+/* .hd-field: 헤더 필터 컨트롤 — 삭제 예정인 작업 큐 화면에서 가져온 스타일. */
+.hd-field { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font-mono); font-size: 12.5px; background: var(--th); color: var(--ink); }
+.sum { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--th); font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
+.sum-sep { color: var(--line); }
+.pr-input { width: 5.5rem; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--ink); }
+.muted { font-size: 12px; color: var(--ink-2); }
 .codeblock { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--th); color: var(--ink); font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow: auto; }
 </style>
