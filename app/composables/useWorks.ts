@@ -13,12 +13,19 @@ export interface WorkListParams {
   company?: string
   category?: string
   workerId?: string
+  size?: number
 }
 
-function clean(p: WorkListParams): Record<string, string> {
+// 목록 상한. 백엔드 listPaging은 기본 200건, [1,1000]으로 클램프한다 — 명시하지
+// 않으면 200건에서 조용히 잘리는데 요약(/works/summary)은 그날 전량을 세므로
+// 표와 요약이 서로 다른 모집단을 말하게 된다. 상한에 닿았는지는 호출부가
+// "받은 행 수 === 이 값"으로 판정해 사용자에게 알린다.
+export const WORK_LIST_LIMIT = 1000
+
+function clean(p: WorkListParams): Record<string, string | number> {
   return Object.fromEntries(
     Object.entries(p).filter(([, v]) => v !== undefined && v !== ''),
-  ) as Record<string, string>
+  ) as Record<string, string | number>
 }
 
 // setPriority/cancel은 SYSTEM 전용 엔드포인트다 — 호출부에서 권한을 게이팅한다.

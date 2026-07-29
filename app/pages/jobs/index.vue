@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
-import type { WorkListParams } from '~/composables/useWorks'
+import { WORK_LIST_LIMIT, type WorkListParams } from '~/composables/useWorks'
 import { isStatusCell, type StatusCell } from '~/utils/status'
 import { workStateKind } from '~/utils/dashboardState'
 import { waitReasonCell } from '~/utils/waitReason'
@@ -64,8 +64,11 @@ const params = computed<WorkListParams>(() => ({
 }))
 
 const { data, pending, refresh } = await useAsyncData(
-  'works', () => works.list(params.value), { watch: [params] },
+  'works', () => works.list({ ...params.value, size: WORK_LIST_LIMIT }), { watch: [params] },
 )
+// 상한에 정확히 닿았다 = 더 있을 수 있다. 요약은 페이징 없이 그날 전량을 세므로,
+// 알리지 않으면 "대기 480"이라 써 놓고 표에는 1000행만 그리는 화면이 된다.
+const truncated = computed(() => (data.value?.length ?? 0) >= WORK_LIST_LIMIT)
 // 요약은 상태 분포 자체라 state 필터를 빼고 조회한다(백엔드도 무시한다).
 const { data: sum, refresh: refreshSummary } = await useAsyncData(
   'works-summary', () => works.summary({ ...params.value, state: undefined }), { watch: [params] },
@@ -129,6 +132,12 @@ const rows = computed<WorkRow[]>(() => {
   return list.filter(r => [r.company, r.account, r.tasks, r.category, r.status.label]
     .some(x => String(x).toLowerCase().includes(q)))
 })
+
+// 날짜는 항상 있으니 필터로 세지 않는다. 나머지 조건이 하나라도 걸려 있으면
+// 0건은 "선생성이 안 됐다"가 아니라 "조건에 맞는 게 없다"는 뜻이다 — 지정 문구를
+// 그대로 쓰면 운영자가 선생성 실패로 오독해 불필요한 재생성을 시도한다.
+const narrowed = computed(() =>
+  !!(search.value.trim() || state.value || createType.value || company.value || workerId.value))
 
 // 서버가 준 순서가 곧 claim 소진 순서(priority DESC, seq)다 — 헤더 클릭 정렬로
 // 흐트러지면 "이 순서대로 소진된다"는 화면의 의미 자체가 사라진다.
@@ -251,8 +260,14 @@ const resultText = computed(() =>
       </template>
     </div>
 
+    <p v-if="truncated" class="trunc">
+      상위 {{ WORK_LIST_LIMIT }}건만 표시합니다 — 위 요약은 이 날짜 전체를 세므로 표보다 클 수 있습니다.
+      필터로 범위를 좁혀 보세요.
+    </p>
+
+    <!-- 컬럼이 12개라 기본 680px로는 어떤 폭에서도 스크롤 대신 말줄임만 난다. -->
     <WDataTable
-      v-if="rows.length" :columns="columns" :rows="rows" :actions-width="190"
+      v-if="rows.length" :columns="columns" :rows="rows" :actions-width="190" :min-width="1400"
       row-clickable @row-click="openResult"
     >
       <template #cell-waitReason="{ row }">
@@ -276,6 +291,11 @@ const resultText = computed(() =>
         <span v-else class="muted">—</span>
       </template>
     </WDataTable>
+    <WEmptyState
+      v-else-if="narrowed"
+      title="조건에 맞는 작업이 없습니다"
+      :message="pending ? '불러오는 중…' : '필터나 검색어를 바꿔 보세요.'"
+    />
     <WEmptyState
       v-else
       title="이 날짜의 작업이 아직 생성되지 않았습니다"
@@ -310,6 +330,7 @@ const resultText = computed(() =>
 .hd-field { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font-mono); font-size: 12.5px; background: var(--th); color: var(--ink); }
 .sum { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--th); font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
 .sum-sep { color: var(--line); }
+.trunc { margin: 0; padding: 9px 18px; border-bottom: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--warn); background: var(--th); font-size: 12.5px; color: var(--ink-2); }
 .pr-input { width: 5.5rem; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--ink); }
 .muted { font-size: 12px; color: var(--ink-2); }
 .codeblock { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--th); color: var(--ink); font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow: auto; }

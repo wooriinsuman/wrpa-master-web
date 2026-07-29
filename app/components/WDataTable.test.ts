@@ -39,6 +39,38 @@ describe('WDataTable', () => {
     expect(el.emitted('rowClick')?.length).toBe(1)
   })
 
+  it('makes a clickable row keyboard-reachable and opens it with Enter/Space', async () => {
+    const rows = [{ status: '활성', name: '삼성화재', code: 'SS-001' }]
+    const el = await mountSuspended(WDataTable, { props: { columns, rows, rowClickable: true } })
+    const row = el.find('.dt-row')
+    expect(row.attributes('tabindex')).toBe('0')
+    expect(row.attributes('role')).toBe('button')
+    await row.trigger('keydown', { key: 'Enter' })
+    await row.trigger('keydown', { key: ' ' })
+    expect(el.emitted('rowClick')?.length).toBe(2)
+    // 다른 키는 열지 않는다.
+    await row.trigger('keydown', { key: 'a' })
+    expect(el.emitted('rowClick')?.length).toBe(2)
+  })
+
+  it('leaves a non-clickable row out of the tab order and ignores Enter on it', async () => {
+    const rows = [{ status: '활성', name: '삼성화재', code: 'SS-001' }]
+    const el = await mountSuspended(WDataTable, { props: { columns, rows } })
+    const row = el.find('.dt-row')
+    expect(row.attributes('tabindex')).toBeUndefined()
+    expect(row.attributes('role')).toBeUndefined()
+    await row.trigger('keydown', { key: 'Enter' })
+    expect(el.emitted('rowClick')).toBeUndefined()
+  })
+
+  it('keeps the default 680px min-width but honours an explicit minWidth', async () => {
+    const rows = [{ status: '활성', name: '삼성화재', code: 'SS-001' }]
+    const plain = await mountSuspended(WDataTable, { props: { columns, rows } })
+    expect(plain.find('.dt-wrap').attributes('style')).not.toContain('--dt-min-w')
+    const wide = await mountSuspended(WDataTable, { props: { columns, rows, minWidth: 1400 } })
+    expect(wide.find('.dt-wrap').attributes('style')).toContain('--dt-min-w: 1400px')
+  })
+
   it('renders a StatusCell with its explicit kind', async () => {
     const cols = [{ key: 'status', label: '상태', kind: 'status' as const }]
     const rows = [{ status: { label: '대기', kind: 'fail' } }]

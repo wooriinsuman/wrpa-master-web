@@ -37,6 +37,9 @@ mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
 const KEYS = ['works', 'works-summary', 'works-workers', 'works-insurers', 'works-datatypes']
 
 // 컬럼 순서: 상태·대기사유·보험사·계정·카테고리·업적월·실행시각·tasks·우선순위·워커·시도·생성
+// useWorks.ts의 WORK_LIST_LIMIT — mockNuxtImport가 모듈을 대체하므로 직접
+// import하지 않고 값을 고정한 뒤, 페이지가 정말 이 값을 보내는지 단언한다.
+const LIMIT = 1000
 const COL_COMPANY = 2
 const COL_PRIORITY = 8
 const COL_WAIT = 1
@@ -157,5 +160,51 @@ describe('작업 현황', () => {
     expect(document.body.textContent).not.toContain('작업 결과')
     await el.findAll('.dt-row')[0]!.trigger('click')
     expect(document.body.textContent).toContain('작업 결과')
+  })
+
+  // 결과 드로어를 여는 유일한 수단이 행 클릭이므로 키보드로도 도달해야 한다.
+  it('행에 포커스해 Enter로도 결과 드로어를 연다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    const row = el.findAll('.dt-row')[0]!
+    expect(row.attributes('tabindex')).toBe('0')
+    await row.trigger('keydown', { key: 'Enter' })
+    expect(document.body.textContent).toContain('작업 결과')
+  })
+
+  it('12컬럼이 말줄임되지 않도록 표에 넓은 min-width를 준다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    expect(el.find('.dt-wrap').attributes('style')).toContain('--dt-min-w: 1400px')
+  })
+
+  it('목록 상한을 명시해 조회하고, 상한 미만이면 잘림 배너를 내지 않는다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    expect(listMock).toHaveBeenCalledWith(expect.objectContaining({ size: LIMIT }))
+    expect(el.find('.trunc').exists()).toBe(false)
+  })
+
+  it('상한만큼 받으면 잘렸다고 알린다 (요약은 그날 전량을 세므로)', async () => {
+    const one = rows()[0]!
+    listMock.mockResolvedValue(Array.from({ length: LIMIT }, (_, i) => ({ ...one, id: `w${i}` })))
+    clearNuxtData(KEYS)
+    // 1000행을 실제로 그리면 테스트 워커가 힙을 넘긴다. 배너는 표 바깥 마크업이라
+    // 표를 스텁해도 판정(응답 행 수 === 상한)에는 영향이 없다.
+    const el = await mountSuspended(WorkStatusPage, { global: { stubs: { WDataTable: true } } })
+    expect(el.find('.trunc').text()).toContain(`상위 ${LIMIT}건만 표시합니다`)
+  })
+
+  it('검색으로 0건이면 선생성 안내가 아니라 조건 안내를 낸다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    await el.find('.ph-search').setValue('존재하지않는보험사')
+    expect(el.find('.dt-row').exists()).toBe(false)
+    expect(el.text()).toContain('조건에 맞는 작업이 없습니다')
+    expect(el.text()).not.toContain('아직 생성되지 않았습니다')
+  })
+
+  it('필터 없이 0건이면 선생성 안내를 낸다', async () => {
+    listMock.mockResolvedValue([])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    expect(el.text()).toContain('이 날짜의 작업이 아직 생성되지 않았습니다')
+    expect(el.text()).toContain('선생성은 매일 17:00에 다음날 분을 만듭니다.')
   })
 })

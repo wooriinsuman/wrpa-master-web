@@ -29,15 +29,30 @@ const props = defineProps<{
   indexColumn?: boolean
   // Opt-in checkbox column for multi-select (bulk actions). Off by default.
   selectable?: boolean
-  // Opt-in affordance for @row-click (pointer cursor). The event is always
-  // emitted; this only tells the user the row is clickable.
+  // Opt-in affordance for @row-click: pointer cursor + keyboard reachability
+  // (tabindex/role/Enter·Space). The click event is always emitted; this makes
+  // the row an announced, focusable control.
   rowClickable?: boolean
+  // Minimum content width in px before .dt-wrap starts scrolling horizontally.
+  // Default 680 fits ~8 columns; wide tables must raise it or their cells
+  // ellipsize at every viewport instead of ever producing a scrollbar.
+  minWidth?: number
 }>()
 
 // Whole-row click, for pages whose "detail" is a read-only drawer rather than a
 // per-row button. The actions cell stops propagation so its controls (inline
 // inputs, 취소 …) never double as a row click.
 const emit = defineEmits<{ rowClick: [row: Record<string, any>] }>()
+
+// Keyboard equivalent of the row click. Only when rowClickable — otherwise the
+// row is not focusable and a stray Enter (e.g. bubbling out of a cell control)
+// must not open anything.
+function onRowKey(row: Record<string, any>, ev: KeyboardEvent) {
+  if (!props.rowClickable) return
+  if (ev.key !== 'Enter' && ev.key !== ' ') return
+  ev.preventDefault()
+  emit('rowClick', row)
+}
 
 // Multi-column sort state, highest priority first. Empty = show source order.
 const sorts = ref<Sort[]>([])
@@ -120,7 +135,7 @@ function toggleAll() {
 }
 </script>
 <template>
-  <div class="dt-wrap" :style="{ '--dt-actions-w': `${props.actionsWidth ?? 128}px` }">
+  <div class="dt-wrap" :style="{ '--dt-actions-w': `${props.actionsWidth ?? 128}px`, '--dt-min-w': props.minWidth ? `${props.minWidth}px` : undefined }">
     <div class="dt-min">
       <div class="dt-head">
         <div v-if="selectable" class="dt-th dt-sel-h">
@@ -145,7 +160,14 @@ function toggleAll() {
       <div v-if="displayRows.length === 0" class="dt-empty">
         <slot name="empty">데이터가 없습니다.</slot>
       </div>
-      <div v-for="(row, i) in displayRows" :key="i" class="dt-row" :class="{ 'dt-row--clickable': rowClickable }" @click="emit('rowClick', row)">
+      <div
+        v-for="(row, i) in displayRows" :key="i" class="dt-row"
+        :class="{ 'dt-row--clickable': rowClickable }"
+        :tabindex="rowClickable ? 0 : undefined"
+        :role="rowClickable ? 'button' : undefined"
+        @click="emit('rowClick', row)"
+        @keydown="onRowKey(row, $event)"
+      >
         <div v-if="selectable" class="dt-td dt-td--sel">
           <input type="checkbox" :checked="selected.includes(row.id)" @change="toggleOne(row.id)" />
         </div>
@@ -176,7 +198,7 @@ function toggleAll() {
             <span v-else>{{ row[c.key] }}</span>
           </slot>
         </div>
-        <div class="dt-td dt-actions" @click.stop><slot name="actions" :row="row" /></div>
+        <div class="dt-td dt-actions" @click.stop @keydown.stop><slot name="actions" :row="row" /></div>
       </div>
     </div>
   </div>
@@ -186,7 +208,7 @@ function toggleAll() {
    fills the remaining space and scrolls internally; elsewhere (e.g. dashboard)
    it has no bounded height, so it simply grows to content. */
 .dt-wrap { flex: 1; min-height: 0; overflow: auto; }
-.dt-min { min-width: 680px; }
+.dt-min { min-width: var(--dt-min-w, 680px); }
 .dt-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; background: var(--th); border-bottom: 1px solid var(--line); }
 .dt-th { flex: 1; min-width: 0; padding: 11px 16px; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; white-space: nowrap; text-align: center; user-select: none; }
 .dt-th--sortable { cursor: pointer; }
