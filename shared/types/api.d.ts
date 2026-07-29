@@ -862,6 +862,46 @@ export interface paths {
         patch: operations["UpdateWorkPriority"];
         trace?: never;
     };
+    "/api/works/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 대기/실행 중인 work 취소 (운영자 전용, SYSTEM 이상)
+         * @description pending/started인 work만 cancel로 바꾼다. 이미 종료된(done/cancel/failed) work이거나 존재하지 않는 id여도 200을 돌려준다 — 취소는 멱등하게 처리되며 존재 여부를 응답으로 구분하지 않는다. 실행 중이던 워커는 다음 `GET /api/worker/works/{id}/state` 폴에서 "cancel"을 보고 멈춘다.
+         */
+        post: operations["CancelWork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/works/{id}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 종료된 work 재실행 (운영자 전용, SYSTEM 이상)
+         * @description done/cancel/failed인 work만 pending으로 되돌린다(같은 id, retried_count++, files/screenshots 초기화). 아직 진행 중인 pending/started work에는 아무 효과가 없으며, 그 경우에도 200을 돌려준다(cancel과 같은 멱등 응답 규약).
+         */
+        post: operations["RestartWork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-types": {
         parameters: {
             query?: never;
@@ -1577,6 +1617,10 @@ export interface components {
         };
         UpdateWorkPriorityRequest: {
             priority: number;
+        };
+        WorkActionResponse: {
+            /** @description 수행된 동작(예: cancelled) */
+            result: string;
         };
         DataTypeView: {
             code: string;
@@ -3348,6 +3392,54 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    CancelWork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkActionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    RestartWork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description restarted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkActionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     ListDataTypes: {
