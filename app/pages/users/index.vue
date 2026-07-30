@@ -17,10 +17,11 @@ const authStore = useAuthStore()
 // "세션" 관리 액션은 관리자/시스템에게만 노출한다(백엔드도 동일하게 강제하지만
 // UI에서 먼저 숨겨 혼란을 줄인다).
 const canManageSessions = computed(() => authStore.isAdmin)
-// 아이디 UNIQUE 제약은 정지된 계정까지 포함하는데 목록 기본값은 활성만 보여준다.
-// 그래서 "화면에 없는 아이디"가 중복으로 거절되는 상황이 생긴다 — 이 필터가 그
-// 계정을 찾아 다시 활성화하거나 아이디를 포기할지 판단하는 유일한 수단이다.
-const statusFilter = ref<UserListStatus>('active')
+// 정지는 soft delete다 — 행은 deactivated_at만 채워지고 남는다. 기본값이 '활성'이면
+// 정지 직후 refresh에서 행이 사라져 삭제처럼 보이고, 아이디 UNIQUE 제약이 정지된
+// 계정까지 덮으므로 "화면에 없는 아이디"가 중복으로 거절된다. 이 화면은 SYSTEM
+// 전용(nav.ts의 minRank, 백엔드 routes.go의 RequireMinRole)이므로 기본으로 전부 보여준다.
+const statusFilter = ref<UserListStatus>('all')
 const STATUS_OPTIONS: { value: UserListStatus; label: string }[] = [
   { value: 'active', label: '활성' },
   { value: 'inactive', label: '정지' },
@@ -80,13 +81,16 @@ const columns: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
 ]
 
-// 빈 목록 문구는 필터를 반영한다 — '정지' 필터에서 "새 사용자를 등록하세요"는
-// 필터를 걸었다는 사실을 감추고 목록이 빈 이유를 오해하게 만든다.
-const emptyTitle = computed(() =>
-  statusFilter.value === 'inactive' ? '정지된 사용자가 없습니다' : '사용자가 없습니다')
+// 빈 목록 문구는 필터를 반영한다 — 필터가 걸린 상태에서 "새 사용자를 등록하세요"는
+// 목록이 빈 이유를 오해하게 만든다. 기본값('전체')에서는 정말로 사용자가 없다.
+const emptyTitle = computed(() => {
+  if (statusFilter.value === 'inactive') return '정지된 사용자가 없습니다'
+  if (statusFilter.value === 'active') return '활성 사용자가 없습니다'
+  return '사용자가 없습니다'
+})
 const emptyMessage = computed(() => {
   if (pending.value) return '불러오는 중…'
-  if (statusFilter.value === 'inactive') return '상태 필터를 \'전체\'로 바꾸면 활성 사용자도 볼 수 있습니다.'
+  if (statusFilter.value !== 'all') return '상태 필터를 \'전체\'로 바꾸면 모든 사용자를 볼 수 있습니다.'
   return '아래에서 새 사용자를 등록하세요.'
 })
 
@@ -157,6 +161,32 @@ async function toggleActive(row: UserRow) {
     push(extractApiError(e, '변경에 실패했습니다.'), 'error')
   }
 }
+// 완전 삭제. 정지된 행에만 버튼을 내주므로 여기 오는 row는 항상 비활성이다
+// (백엔드도 활성 계정을 409 user_active로 거절한다).
+const deleteConfirmOpen = ref(false)
+const pendingDelete = ref<UserRow | null>(null)
+const deleteMessage = computed(() => {
+  const r = pendingDelete.value
+  if (!r) return ''
+  return `${r.name}(${r.username}) 계정을 완전히 삭제합니다. 복구할 수 없으며, 감사 이력은 보존됩니다.`
+})
+function askDelete(row: UserRow) {
+  pendingDelete.value = row
+  deleteConfirmOpen.value = true
+}
+async function doDelete() {
+  const row = pendingDelete.value
+  if (!row) return
+  try {
+    await users.remove(row.id)
+    await refresh()
+    push('완전히 삭제되었습니다.', 'success')
+  } catch (e: any) {
+    push(extractApiError(e, '삭제에 실패했습니다.'), 'error')
+  } finally {
+    pendingDelete.value = null
+  }
+}
 </script>
 
 <template>
@@ -169,12 +199,14 @@ async function toggleActive(row: UserRow) {
         </select>
       </template>
     </WPageHeader>
-    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="canManageSessions ? 210 : 150">
+    <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="canManageSessions ? 270 : 210">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openEdit(row as UserRow)">편집</button>
         <button v-if="canManageSessions" class="act act--ghost" @click="openSessions(row as UserRow)">세션</button>
         <button class="act" :class="(row as UserRow).active ? 'act--danger' : 'act--primary'"
           @click="toggleActive(row as UserRow)">{{ (row as UserRow).active ? '정지' : '활성' }}</button>
+        <button v-if="!(row as UserRow).active" class="act act--danger"
+          @click="askDelete(row as UserRow)">삭제</button>
       </template>
     </WDataTable>
     <WEmptyState v-else :title="emptyTitle" :message="emptyMessage"
@@ -214,6 +246,8 @@ async function toggleActive(row: UserRow) {
 
     <UserSessionsDrawer v-if="canManageSessions" v-model:open="sessionDrawerOpen"
       :user-id="sessionUserId" :user-label="sessionUserLabel" />
+    <WConfirm v-model:open="deleteConfirmOpen" title="사용자 완전 삭제" :message="deleteMessage"
+      confirm-label="완전 삭제" @confirm="doDelete" />
   </section>
 </template>
 

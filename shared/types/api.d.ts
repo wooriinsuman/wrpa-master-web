@@ -310,7 +310,11 @@ export interface paths {
         get: operations["GetUser"];
         put: operations["UpdateUser"];
         post?: never;
-        delete?: never;
+        /**
+         * Hard-delete a deactivated user (SYSTEM only)
+         * @description Permanently removes the user row. The account must be deactivated first (409 `user_active` otherwise). Rejects deleting your own account (`self_delete`) and the last SYSTEM account (`last_system_user`). user_roles and auth_tokens cascade; audit_log rows survive.
+         */
+        delete: operations["DeleteUser"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2837,6 +2841,23 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    DeleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     SetUserActive: {
         parameters: {
             query?: never;
@@ -2856,6 +2877,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     ListUserSessions: {

@@ -16,6 +16,10 @@ export type ApiErrorCode =
   | 'workfile_duplicate'
   | 'username_taken'
   | 'invalid_reference'
+  | 'user_active'
+  | 'self_delete'
+  | 'self_deactivate'
+  | 'last_system_user'
   | 'upstream_unavailable' // 프록시 합성: 백엔드 무응답
   | 'upstream_error' // 프록시 합성: 백엔드가 봉투 밖 형태로 응답
 
@@ -31,9 +35,14 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   work_not_pending: '대기 중인 작업만 조정할 수 있습니다.',
   workfile_in_use: '작업파일이 참조 중이라 삭제할 수 없습니다.',
   workfile_duplicate: '같은 보험사에 동일한 분류 조합(데이터/유형/보종/컨텐츠)의 작업 파일이 이미 있습니다.',
-  // 아이디 UNIQUE 제약은 정지된 계정까지 포함한다 — 목록 기본값이 활성만 보여주므로
-  // "화면에 없는 아이디가 중복"으로 보인다. 어디를 봐야 하는지까지 말해 준다.
-  username_taken: '이미 사용 중인 아이디입니다. 정지된 계정이 쓰고 있을 수 있으니 상태 필터를 \'정지\'로 바꿔 확인해 주세요.',
+  // 아이디 UNIQUE 제약은 정지된 계정까지 포함한다. 목록 기본값이 '전체'라 그 계정이
+  // 화면에 보이므로, 재활성화든 완전 삭제든 조치를 바로 취할 수 있다.
+  username_taken: '이미 사용 중인 아이디입니다. 정지된 계정이 쓰고 있을 수 있으니 목록에서 해당 계정을 재활성화하거나 완전 삭제해 주세요.',
+  // 사용자 생애주기 409. 코드마다 조치가 다르므로 공용 'conflict'로 묶지 않는다.
+  user_active: '정지된 계정만 완전 삭제할 수 있습니다. 먼저 정지한 뒤 삭제해 주세요.',
+  self_delete: '자기 계정은 삭제할 수 없습니다. 다른 시스템 관리자에게 요청해 주세요.',
+  self_deactivate: '자기 계정은 정지할 수 없습니다. 다른 시스템 관리자에게 요청해 주세요.',
+  last_system_user: '마지막 시스템 관리자 계정입니다. 다른 시스템 관리자를 먼저 만들어 주세요.',
   invalid_reference: '선택한 회사 또는 역할이 존재하지 않습니다. 목록을 다시 불러온 뒤 시도해 주세요.',
   upstream_unavailable: 'RPA API를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   upstream_error: 'RPA API 응답을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.',

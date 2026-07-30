@@ -6,9 +6,9 @@ type UsersList = components['schemas']['UsersList']
 type Role = components['schemas']['Role']
 
 /**
- * 목록의 활성 상태 필터. 백엔드 기본값은 'active'다.
- * 아이디 UNIQUE 제약이 정지된 계정까지 덮으므로, 중복 아이디의 정체를 확인하려면
- * 'inactive'/'all'로 조회해야 한다(백엔드 docs/error-contract.md 참고).
+ * 목록의 활성 상태 필터. 백엔드 기본값은 'active'지만 사용자 화면은 'all'을 명시해
+ * 호출한다 — 정지는 soft delete이고 아이디 UNIQUE 제약이 정지된 계정까지 덮으므로,
+ * 관리자는 정지된 계정을 항상 볼 수 있어야 한다(백엔드 docs/error-contract.md 참고).
  */
 export type UserListStatus = 'active' | 'inactive' | 'all'
 
@@ -21,5 +21,8 @@ export function useUsers() {
     create: (f: UserForm) => api('/users', { method: 'POST', body: toCreateUserRequest(f) }),
     update: (id: string, f: UserForm) => api(`/users/${id}`, { method: 'PUT', body: toUpdateUserRequest(f) }),
     setActive: (id: string, active: boolean) => api(`/users/${id}/active`, { method: 'POST', body: { active } }),
+    // 완전 삭제(hard delete). 백엔드는 정지된 계정만 허용한다 — 활성 계정이면
+    // 409 user_active로 거절되고, 자기 자신/마지막 SYSTEM 계정도 409로 막힌다.
+    remove: (id: string) => api(`/users/${id}`, { method: 'DELETE' }),
   }
 }

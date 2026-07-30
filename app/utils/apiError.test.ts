@@ -34,14 +34,23 @@ describe('extractApiError', () => {
     expect(extractApiError(e, 'fallback')).toBe('권한이 없습니다.')
   })
 
-  // 사용자 등록 500 버그: 아이디 중복이 'conflict'가 아니라 username_taken으로
-  // 오고, 정지된 계정이 아이디를 쥐고 있을 수 있다는 사실까지 알려야 한다.
-  // (목록 기본값이 활성만 보여줘서 화면에서는 그 아이디가 보이지 않는다.)
-  it('아이디 중복은 정지 계정 가능성과 확인 방법까지 안내한다', () => {
-    const msg = extractApiError(envelope('username_taken', 'username already in use'), 'fallback')
-    expect(msg).toContain('이미 사용 중인 아이디입니다')
-    expect(msg).toContain('정지')
-    expect(msg).not.toContain('username already in use')
+  // 기본 필터가 '전체'가 되면서 "'정지'로 바꿔 확인" 안내는 더 이상 맞지 않는다.
+  // 대신 완전 삭제라는 조치를 알려 준다.
+  it('아이디 중복은 재활성화/완전 삭제라는 조치를 안내한다', () => {
+    const msg = extractApiError({ data: { error: { code: 'username_taken' } } }, 'fallback')
+    expect(msg).toContain('정지된 계정')
+    expect(msg).toContain('완전 삭제')
+  })
+
+  // 사용자 생애주기 409는 각각 조치가 다르다 — 공용 'conflict' 문구로는 다음에
+  // 무엇을 해야 하는지 알 수 없다. 각 코드의 부분 문자열은 다른 메시지들과
+  // 구별되어야 코드 전치(self_delete ↔ self_deactivate)를 감지할 수 있다.
+  it('사용자 생애주기 409는 조치까지 안내한다', () => {
+    const msg = (code: string) => extractApiError({ data: { error: { code } } }, 'fallback')
+    expect(msg('user_active')).toContain('정지된 계정만')
+    expect(msg('self_delete')).toContain('자기 계정은 삭제할 수 없습니다')
+    expect(msg('self_deactivate')).toContain('자기 계정은 정지할 수 없습니다')
+    expect(msg('last_system_user')).toContain('마지막 시스템 관리자')
   })
 
   it('존재하지 않는 회사/역할 참조는 입력 오류로 안내한다', () => {

@@ -38,4 +38,12 @@ describe('useUsers', () => {
     await useUsers().setActive('u-1', true)
     expect(apiMock).toHaveBeenCalledWith('/users/u-1/active', { method: 'POST', body: { active: true } })
   })
+
+  // 완전 삭제. 백엔드는 정지된 계정만 허용하므로(409 user_active) 화면이 활성 행에
+  // 버튼을 내주지 않는 것과 짝을 이룬다.
+  it('remove(id)는 DELETE /users/{id}를 호출한다', async () => {
+    apiMock.mockResolvedValue({})
+    await useUsers().remove('u-1')
+    expect(apiMock).toHaveBeenCalledWith('/users/u-1', { method: 'DELETE' })
+  })
 })

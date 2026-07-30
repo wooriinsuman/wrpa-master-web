@@ -6,11 +6,11 @@ import { clearNuxtData } from '#app'
 import UsersPage from './index.vue'
 import { useAuthStore } from '~/stores/auth'
 
-const { listMock, rolesMock, companiesMock, createMock, updateMock, setActiveMock, pushMock } = vi.hoisted(() => ({
+const { listMock, rolesMock, companiesMock, createMock, updateMock, setActiveMock, removeMock, pushMock } = vi.hoisted(() => ({
   listMock: vi.fn(), rolesMock: vi.fn(), companiesMock: vi.fn(),
-  createMock: vi.fn(), updateMock: vi.fn(), setActiveMock: vi.fn(), pushMock: vi.fn(),
+  createMock: vi.fn(), updateMock: vi.fn(), setActiveMock: vi.fn(), removeMock: vi.fn(), pushMock: vi.fn(),
 }))
-mockNuxtImport('useUsers', () => () => ({ list: listMock, roles: rolesMock, create: createMock, update: updateMock, setActive: setActiveMock }))
+mockNuxtImport('useUsers', () => () => ({ list: listMock, roles: rolesMock, create: createMock, update: updateMock, setActive: setActiveMock, remove: removeMock }))
 mockNuxtImport('useClients', () => () => ({ list: companiesMock, create: vi.fn(), remove: vi.fn() }))
 mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: pushMock }))
 
@@ -28,6 +28,8 @@ function seedMocks(user = seedUser) {
   createMock.mockResolvedValue(undefined)
   updateMock.mockResolvedValue(undefined)
   setActiveMock.mockResolvedValue(undefined)
+  removeMock.mockReset()
+  removeMock.mockResolvedValue(undefined)
 }
 
 function findByText(el: any, tag: string, text: string) {
@@ -35,6 +37,21 @@ function findByText(el: any, tag: string, text: string) {
 }
 
 describe('users page', () => {
+  // 정지는 soft delete다(deactivated_at). 기본이 활성만이면 정지 직후 행이 사라져
+  // 삭제와 구분되지 않으므로, 이 화면(SYSTEM 전용)은 기본으로 전부 보여준다.
+  it('첫 로드는 정지 계정까지 포함해 조회한다', async () => {
+    seedMocks()
+    await mountSuspended(UsersPage)
+    expect(listMock).toHaveBeenCalledWith('all')
+  })
+
+  it('정지된 사용자도 정지 배지와 함께 목록에 나온다', async () => {
+    seedMocks({ ...seedUser, id: 'u2', username: 'ghost', active: false })
+    const el = await mountSuspended(UsersPage)
+    expect(el.text()).toContain('ghost')
+    expect(el.find('.badge--idle').exists()).toBe(true)
+  })
+
   it('renders a user row with its username, active badge, and name-resolved role/company', async () => {
     seedMocks()
     const el = await mountSuspended(UsersPage)
@@ -145,5 +162,39 @@ describe('users page', () => {
     expect(message).toContain('정지')
     // 백엔드 영문 message는 화면에 절대 나오지 않는다.
     expect(message).not.toContain('username already in use')
+  })
+
+  // 완전 삭제는 되돌릴 수 없으므로 정지(되돌릴 수 있는 동작) 뒤에만 노출한다.
+  it('활성 계정에는 삭제 버튼이 없다', async () => {
+    seedMocks()
+    const el = await mountSuspended(UsersPage)
+    expect(findByText(el, 'button', '삭제')).toBeUndefined()
+  })
+
+  it('정지된 계정의 삭제 버튼은 확인 다이얼로그를 열고 아직 삭제하지 않는다', async () => {
+    seedMocks({ ...seedUser, active: false })
+    const el = await mountSuspended(UsersPage)
+    await findByText(el, 'button', '삭제')!.trigger('click')
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r)) // WConfirm(reka-ui portal) 마운트 대기
+    expect(document.body.textContent).toContain('사용자 완전 삭제')
+    // 'admin' 단독으로는 검증되지 않는다 — 아이디 컬럼에 이미 렌더링되어 있어
+    // deleteMessage가 비어 있어도 통과한다. deleteMessage만이 만드는 문구로 검증한다.
+    expect(document.body.textContent).toContain('관리자(admin) 계정을 완전히 삭제합니다')
+    expect(document.body.textContent).toContain('복구할 수 없으며, 감사 이력은 보존됩니다')
+    expect(removeMock).not.toHaveBeenCalled()
+  })
+
+  it('확인 다이얼로그에서 완전 삭제를 누르면 remove(id)를 호출한다', async () => {
+    seedMocks({ ...seedUser, active: false })
+    const el = await mountSuspended(UsersPage)
+    await findByText(el, 'button', '삭제')!.trigger('click')
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r))
+    const confirmBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === '완전 삭제')
+    expect(confirmBtn).toBeTruthy()
+    confirmBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await el.vm.$nextTick()
+    expect(removeMock).toHaveBeenCalledWith('u1')
   })
 })
