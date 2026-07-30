@@ -197,4 +197,48 @@ describe('users page', () => {
     await el.vm.$nextTick()
     expect(removeMock).toHaveBeenCalledWith('u1')
   })
+
+  // 완전 삭제의 토스트 계약을 고정한다: 성공 문구가 나가고 실패 문구는 나가지 않는다.
+  // 주의 — 이 테스트는 refresh를 try 안/밖으로 옮기는 것을 구분하지 못한다. 지금의
+  // useAsyncData refresh()가 에러를 던지지 않고 흡수하기 때문이다. 잡아내는 것은
+  // 토스트 문구·개수가 바뀌거나 두 토스트가 함께 나가는 회귀다.
+  it('삭제 성공 후 재조회가 실패해도 실패 토스트를 내지 않는다', async () => {
+    seedMocks({ ...seedUser, active: false })
+    listMock.mockReset()
+    listMock.mockResolvedValueOnce([{ ...seedUser, active: false }])
+    listMock.mockRejectedValue(new Error('boom'))
+    const el = await mountSuspended(UsersPage)
+    await findByText(el, 'button', '삭제')!.trigger('click')
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r))
+    const confirmBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === '완전 삭제')
+    confirmBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r))
+
+    expect(removeMock).toHaveBeenCalledWith('u1')
+    expect(pushMock).toHaveBeenCalledWith('완전히 삭제되었습니다.', 'success')
+    expect(pushMock).not.toHaveBeenCalledWith(expect.stringContaining('삭제에 실패'), 'error')
+  })
+
+  // 빈 목록 문구는 필터마다 참이어야 한다. 기본값이 '전체'가 되면서 "'전체'로 바꾸면
+  // 보입니다"를 기본 문구로 쓰면 이미 그 필터에 있는 운영자에게 하는 말이 된다.
+  it('빈 목록 문구는 상태 필터마다 사실인 문장을 낸다', async () => {
+    seedMocks()
+    listMock.mockResolvedValue([])
+    const el = await mountSuspended(UsersPage)
+
+    // 기본값 '전체' — 필터가 아무것도 감추지 않으므로 정말로 사용자가 없다.
+    expect(el.text()).toContain('사용자가 없습니다')
+    expect(el.text()).toContain('아래에서 새 사용자를 등록하세요.')
+    expect(el.text()).not.toContain('상태 필터를')
+
+    for (const [value, title] of [['active', '활성 사용자가 없습니다'], ['inactive', '정지된 사용자가 없습니다']]) {
+      await el.find('select').setValue(value)
+      await el.vm.$nextTick()
+      await new Promise(r => setTimeout(r)) // useAsyncData watch 재조회 대기
+      expect(el.text()).toContain(title)
+      expect(el.text()).toContain('상태 필터를 \'전체\'로 바꾸면 모든 사용자를 볼 수 있습니다.')
+    }
+  })
 })

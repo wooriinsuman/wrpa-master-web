@@ -53,6 +53,14 @@ describe('extractApiError', () => {
     expect(msg('last_system_user')).toContain('마지막 시스템 관리자')
   })
 
+  // company_required는 400이지만 등재한다 — 역할을 관리자/사용자로 낮추는 순간 회사가
+  // 필수가 되는 게 원인이고, 화면은 어느 필드가 문제인지 알 수 없다.
+  it('회사 누락은 어느 필드를 채워야 하는지 알려준다', () => {
+    const msg = extractApiError({ data: { error: { code: 'company_required' } } }, 'fallback')
+    expect(msg).toContain('회사')
+    expect(msg).not.toBe('fallback')
+  })
+
   it('존재하지 않는 회사/역할 참조는 입력 오류로 안내한다', () => {
     expect(extractApiError(envelope('invalid_reference'), 'fallback'))
       .toBe('선택한 회사 또는 역할이 존재하지 않습니다. 목록을 다시 불러온 뒤 시도해 주세요.')

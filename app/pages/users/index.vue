@@ -179,13 +179,17 @@ async function doDelete() {
   if (!row) return
   try {
     await users.remove(row.id)
-    await refresh()
-    push('완전히 삭제되었습니다.', 'success')
   } catch (e: any) {
     push(extractApiError(e, '삭제에 실패했습니다.'), 'error')
-  } finally {
     pendingDelete.value = null
+    return
   }
+  // 성공 판정을 재조회와 분리한다. 지금의 useAsyncData refresh()는 에러를 던지지 않고
+  // error ref로 흡수하므로 try 안에 둬도 실제로 오진이 나지는 않는다 — 그래도 되돌릴 수
+  // 없는 동작의 성공 문구가 목록 재조회에 의존할 이유가 없다.
+  pendingDelete.value = null
+  push('완전히 삭제되었습니다.', 'success')
+  await refresh()
 }
 </script>
 

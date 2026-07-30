@@ -111,7 +111,9 @@ extractApiError(e, fallback, overrides?)
 | `forbidden` | 권한이 없습니다. |
 | `work_not_pending` | 대기 중인 작업만 조정할 수 있습니다. |
 | `workfile_in_use` | 작업파일이 참조 중이라 삭제할 수 없습니다. |
+| `workfile_duplicate` | 같은 보험사에 동일한 분류 조합(데이터/유형/보종/컨텐츠)의 작업 파일이 이미 있습니다. |
 | `username_taken` | 이미 사용 중인 아이디입니다. 정지된 계정이 쓰고 있을 수 있으니 목록에서 해당 계정을 재활성화하거나 완전 삭제해 주세요. |
+| `company_required` | 관리자·사용자 역할은 회사가 필요합니다. 회사를 선택한 뒤 저장해 주세요. |
 | `user_active` | 정지된 계정만 완전 삭제할 수 있습니다. 먼저 정지한 뒤 삭제해 주세요. |
 | `self_delete` | 자기 계정은 삭제할 수 없습니다. 다른 시스템 관리자에게 요청해 주세요. |
 | `self_deactivate` | 자기 계정은 정지할 수 없습니다. 다른 시스템 관리자에게 요청해 주세요. |

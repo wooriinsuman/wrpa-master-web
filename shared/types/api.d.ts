@@ -308,6 +308,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["GetUser"];
+        /** @description Replacing roles so that ROLE_SYSTEM is dropped from the last active SYSTEM account is rejected with 409 `last_system_user` — role changes do not revoke sessions, so without this the lockout only surfaces when the access token expires. */
         put: operations["UpdateUser"];
         post?: never;
         /**
@@ -2839,6 +2840,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     DeleteUser: {
