@@ -34,6 +34,21 @@ describe('extractApiError', () => {
     expect(extractApiError(e, 'fallback')).toBe('권한이 없습니다.')
   })
 
+  // 사용자 등록 500 버그: 아이디 중복이 'conflict'가 아니라 username_taken으로
+  // 오고, 정지된 계정이 아이디를 쥐고 있을 수 있다는 사실까지 알려야 한다.
+  // (목록 기본값이 활성만 보여줘서 화면에서는 그 아이디가 보이지 않는다.)
+  it('아이디 중복은 정지 계정 가능성과 확인 방법까지 안내한다', () => {
+    const msg = extractApiError(envelope('username_taken', 'username already in use'), 'fallback')
+    expect(msg).toContain('이미 사용 중인 아이디입니다')
+    expect(msg).toContain('정지')
+    expect(msg).not.toContain('username already in use')
+  })
+
+  it('존재하지 않는 회사/역할 참조는 입력 오류로 안내한다', () => {
+    expect(extractApiError(envelope('invalid_reference'), 'fallback'))
+      .toBe('선택한 회사 또는 역할이 존재하지 않습니다. 목록을 다시 불러온 뒤 시도해 주세요.')
+  })
+
   it('leaves generic codes to the caller fallback, which knows the entity', () => {
     expect(extractApiError(envelope('not_found'), '휴일을 찾을 수 없습니다.'))
       .toBe('휴일을 찾을 수 없습니다.')

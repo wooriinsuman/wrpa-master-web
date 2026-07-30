@@ -1342,7 +1342,7 @@ export interface components {
         ErrorResponse: {
             error: {
                 /**
-                 * @description Stable machine-readable identifier. Clients branch on this and nothing else. Vocabulary: bad_request, invalid_credentials, unauthorized, account_inactive, forbidden, not_found, conflict, work_not_pending, workfile_in_use. See docs/error-contract.md.
+                 * @description Stable machine-readable identifier. Clients branch on this and nothing else. Vocabulary: bad_request, invalid_credentials, unauthorized, account_inactive, forbidden, not_found, conflict, work_not_pending, workfile_in_use, username_taken, invalid_reference. See docs/error-contract.md.
                  * @example bad_request
                  */
                 code: string;
@@ -2741,6 +2741,8 @@ export interface operations {
         parameters: {
             query?: {
                 companyId?: string;
+                /** @description 활성 상태 필터. 기본값 `active`(비활성 계정 제외)는 기존 동작이다. username UNIQUE 제약은 비활성 계정까지 포함하므로, 중복 아이디의 정체를 확인하려면 `inactive`/`all`로 조회해야 한다. */
+                status?: "active" | "inactive" | "all";
                 page?: number;
                 size?: number;
             };
@@ -2759,6 +2761,7 @@ export interface operations {
                     "application/json": components["schemas"]["UsersList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };
@@ -2786,6 +2789,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
         };
     };
     GetUser: {

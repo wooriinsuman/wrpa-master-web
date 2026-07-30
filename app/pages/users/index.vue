@@ -3,7 +3,9 @@ import { ref, computed } from 'vue'
 import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import type { StatusCell } from '~/utils/status'
+import { extractApiError } from '~/utils/apiError'
 import { blankUserForm, type UserForm } from '~/utils/userForm'
+import type { UserListStatus } from '~/composables/useUsers'
 
 type UserView = components['schemas']['UserView']
 type Role = components['schemas']['Role']
@@ -15,10 +17,21 @@ const authStore = useAuthStore()
 // "세션" 관리 액션은 관리자/시스템에게만 노출한다(백엔드도 동일하게 강제하지만
 // UI에서 먼저 숨겨 혼란을 줄인다).
 const canManageSessions = computed(() => authStore.isAdmin)
+// 아이디 UNIQUE 제약은 정지된 계정까지 포함하는데 목록 기본값은 활성만 보여준다.
+// 그래서 "화면에 없는 아이디"가 중복으로 거절되는 상황이 생긴다 — 이 필터가 그
+// 계정을 찾아 다시 활성화하거나 아이디를 포기할지 판단하는 유일한 수단이다.
+const statusFilter = ref<UserListStatus>('active')
+const STATUS_OPTIONS: { value: UserListStatus; label: string }[] = [
+  { value: 'active', label: '활성' },
+  { value: 'inactive', label: '정지' },
+  { value: 'all', label: '전체' },
+]
 const { data, refresh, pending } = await useAsyncData('users', async () => {
-  const [list, roleList, companyList] = await Promise.all([users.list(), users.roles(), useClients().list()])
+  const [list, roleList, companyList] = await Promise.all([
+    users.list(statusFilter.value), users.roles(), useClients().list(),
+  ])
   return { list, roleList, companyList }
-})
+}, { watch: [statusFilter] })
 const roleOptions = computed<Role[]>(() => data.value?.roleList ?? [])
 // 체크박스 표시 순서: SYSTEM(30) > ADMIN(20) > USER(10) — rank 내림차순.
 // 원본 roleOptions(이름순)는 그대로 두고 표시용 사본만 정렬한다.
@@ -67,6 +80,16 @@ const columns: Column[] = [
   { key: 'status', label: '상태', kind: 'status' },
 ]
 
+// 빈 목록 문구는 필터를 반영한다 — '정지' 필터에서 "새 사용자를 등록하세요"는
+// 필터를 걸었다는 사실을 감추고 목록이 빈 이유를 오해하게 만든다.
+const emptyTitle = computed(() =>
+  statusFilter.value === 'inactive' ? '정지된 사용자가 없습니다' : '사용자가 없습니다')
+const emptyMessage = computed(() => {
+  if (pending.value) return '불러오는 중…'
+  if (statusFilter.value === 'inactive') return '상태 필터를 \'전체\'로 바꾸면 활성 사용자도 볼 수 있습니다.'
+  return '아래에서 새 사용자를 등록하세요.'
+})
+
 const drawerOpen = ref(false)
 const editingId = ref<string | null>(null)
 const form = ref<UserForm>(blankUserForm())
@@ -112,7 +135,9 @@ async function save() {
     await refresh()
     push(editing ? '수정되었습니다.' : '등록되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.message ?? '저장에 실패했습니다.', 'error')
+    // code → 한국어(apiError.ts). 백엔드 message는 영문 개발자용이라 쓰지 않는다 —
+    // 아이디 중복(username_taken)이 여기서 정지 계정을 안내하는 문구로 바뀐다.
+    push(extractApiError(e, editing ? '수정에 실패했습니다.' : '등록에 실패했습니다.'), 'error')
   }
 }
 const sessionDrawerOpen = ref(false)
@@ -129,7 +154,7 @@ async function toggleActive(row: UserRow) {
     await refresh()
     push(row.active ? '정지되었습니다.' : '활성화되었습니다.', 'success')
   } catch (e: any) {
-    push(e?.message ?? '변경에 실패했습니다.', 'error')
+    push(extractApiError(e, '변경에 실패했습니다.'), 'error')
   }
 }
 </script>
@@ -137,7 +162,13 @@ async function toggleActive(row: UserRow) {
 <template>
   <section class="panel">
     <WPageHeader title="사용자" desc="시스템 사용자 관리" add-label="+ 사용자 등록"
-      v-model:search="search" @add="openCreate" @refresh="refresh" />
+      v-model:search="search" @add="openCreate" @refresh="refresh">
+      <template #header-actions>
+        <select v-model="statusFilter" class="hd-field" aria-label="상태">
+          <option v-for="o in STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+      </template>
+    </WPageHeader>
     <WDataTable v-if="rows.length" :columns="columns" :rows="rows" :actions-width="canManageSessions ? 210 : 150">
       <template #actions="{ row }">
         <button class="act act--ghost" @click="openEdit(row as UserRow)">편집</button>
@@ -146,8 +177,7 @@ async function toggleActive(row: UserRow) {
           @click="toggleActive(row as UserRow)">{{ (row as UserRow).active ? '정지' : '활성' }}</button>
       </template>
     </WDataTable>
-    <WEmptyState v-else title="사용자가 없습니다"
-      :message="pending ? '불러오는 중…' : '아래에서 새 사용자를 등록하세요.'"
+    <WEmptyState v-else :title="emptyTitle" :message="emptyMessage"
       cta-label="+ 사용자 등록" @cta="openCreate" />
 
     <WDrawer v-model:open="drawerOpen" :title="drawerTitle" description="사용자 정보를 입력한 뒤 저장하세요.">
@@ -191,4 +221,6 @@ async function toggleActive(row: UserRow) {
 /* .fld / .act / .roles come from the global DS (assets/css/components.css). */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--rim), var(--elev); }
 .muted { color: var(--ink-2); font-size: 12px; }
+/* .hd-field: 헤더 필터 컨트롤 스타일 (작업 현황 화면과 동일). */
+.hd-field { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font-mono); font-size: 12.5px; background: var(--th); color: var(--ink); }
 </style>

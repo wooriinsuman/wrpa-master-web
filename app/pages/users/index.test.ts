@@ -2,20 +2,26 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
+import { clearNuxtData } from '#app'
 import UsersPage from './index.vue'
 import { useAuthStore } from '~/stores/auth'
 
-const { listMock, rolesMock, companiesMock, createMock, updateMock, setActiveMock } = vi.hoisted(() => ({
+const { listMock, rolesMock, companiesMock, createMock, updateMock, setActiveMock, pushMock } = vi.hoisted(() => ({
   listMock: vi.fn(), rolesMock: vi.fn(), companiesMock: vi.fn(),
-  createMock: vi.fn(), updateMock: vi.fn(), setActiveMock: vi.fn(),
+  createMock: vi.fn(), updateMock: vi.fn(), setActiveMock: vi.fn(), pushMock: vi.fn(),
 }))
 mockNuxtImport('useUsers', () => () => ({ list: listMock, roles: rolesMock, create: createMock, update: updateMock, setActive: setActiveMock }))
 mockNuxtImport('useClients', () => () => ({ list: companiesMock, create: vi.fn(), remove: vi.fn() }))
-mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
+mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: pushMock }))
 
 const seedUser = { id: 'u1', username: 'admin', name: '관리자', email: 'a@x.io', companyId: 'c1', createdAt: 0, active: true, roles: ['ADMIN'] }
 
 function seedMocks(user = seedUser) {
+  // useAsyncData('users')는 테스트 간 페이로드에 캐시된다 — 지우지 않으면 다음
+  // 마운트가 캐시를 재사용해 list()를 아예 부르지 않는다.
+  clearNuxtData('users')
+  pushMock.mockClear()
+  listMock.mockReset()
   listMock.mockResolvedValue([user])
   rolesMock.mockResolvedValue([{ id: 'ADMIN', name: '관리자' }])
   companiesMock.mockResolvedValue([{ id: 'c1', name: '우리인수만', code: 'WRI', active: true }])
@@ -94,5 +100,50 @@ describe('users page', () => {
     saveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await el.vm.$nextTick()
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ companyId: 'c1' }))
+  })
+
+  // --- 정지 계정 가시성 (사용자 등록 500 버그의 UX 절반) ---
+  // 아이디 UNIQUE 제약은 정지 계정까지 포함하는데 목록 기본값은 활성만 보여준다.
+  // 필터가 없으면 운영자는 "화면에 없는 아이디"가 중복이라는 말만 듣고 끝난다.
+
+  // status가 실제로 요청에 실리는지는 useUsers.test.ts가 본다(여기서는
+  // useAsyncData('users')가 파일 내 첫 마운트의 핸들러를 재사용해 인자를 신뢰할 수 없다).
+  it('상태 필터를 정지로 바꾸면 목록을 다시 읽어 비활성 계정을 보여준다', async () => {
+    seedMocks()
+    const el = await mountSuspended(UsersPage)
+    const select = el.find('select[aria-label="상태"]')
+    expect(select.exists()).toBe(true)
+    // 활성/정지/전체 세 선택지가 있어야 운영자가 아이디의 주인을 찾을 수 있다.
+    expect(select.findAll('option').map(o => o.text())).toEqual(['활성', '정지', '전체'])
+    expect(select.findAll('option').map(o => o.attributes('value'))).toEqual(['active', 'inactive', 'all'])
+
+    const before = listMock.mock.calls.length
+    listMock.mockResolvedValue([{ ...seedUser, id: 'u2', username: 'dbg-h-0730', active: false }])
+    await select.setValue('inactive')
+    await new Promise(r => setTimeout(r))
+    expect(listMock.mock.calls.length).toBeGreaterThan(before) // 필터 변경 → 재조회
+    expect(el.text()).toContain('dbg-h-0730')
+    // 정지 계정은 '정지' 배지로 구분되고, 다시 활성화할 수 있어야 한다.
+    expect(el.find('.badge--idle').exists()).toBe(true)
+    expect(findByText(el, 'button', '활성')).toBeTruthy()
+  })
+
+  it('아이디 중복 409는 정지 계정 확인 방법을 안내한다', async () => {
+    seedMocks()
+    createMock.mockRejectedValue({ data: { error: { code: 'username_taken', message: 'username already in use' } } })
+    const el = await mountSuspended(UsersPage)
+    await findByText(el, 'button', '+ 사용자 등록')!.trigger('click')
+    await el.vm.$nextTick()
+    await new Promise(r => setTimeout(r))
+    const saveBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === '저장')!
+    saveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await new Promise(r => setTimeout(r))
+
+    const [message, kind] = pushMock.mock.calls.at(-1)!
+    expect(kind).toBe('error')
+    expect(message).toContain('이미 사용 중인 아이디입니다')
+    expect(message).toContain('정지')
+    // 백엔드 영문 message는 화면에 절대 나오지 않는다.
+    expect(message).not.toContain('username already in use')
   })
 })
