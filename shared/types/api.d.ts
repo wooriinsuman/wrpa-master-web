@@ -1318,23 +1318,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/dashboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 개발용 모니터링 페이지 (HTML, 무인증) */
-        get: operations["GetDashboardPage"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/dashboard/data": {
         parameters: {
             query?: never;
@@ -1342,7 +1325,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 대시보드 데이터 피드 (workers/works/packages 집계, 무인증) */
+        /** 대시보드 데이터 피드 (workers/works/packages 집계, SYSTEM 전용) */
         get: operations["GetDashboardData"];
         put?: never;
         post?: never;
@@ -4723,26 +4706,6 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    GetDashboardPage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description dashboard page */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
-    };
     GetDashboardData: {
         parameters: {
             query?: never;
@@ -4761,6 +4724,8 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardData"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }
