@@ -262,6 +262,43 @@ describe('작업 현황', () => {
     expect(el.find('.sum').text()).toContain('실패 0')
   })
 
+  // 백엔드 FinishWork는 워커가 보낸 success와 무관하게 state='done'으로 쓴다.
+  // state만 보고 라벨을 붙이면 driveTo가 터진 작업이 "성공"으로 보였다 — 화면이
+  // 결과 본문까지 읽는지 렌더링 경로에서 확인한다.
+  it('워커가 실패를 보고한 done 작업은 실패로 표시한다', async () => {
+    listMock.mockResolvedValue([{
+      ...rows()[1],
+      result: {
+        success: false, status: 500, resultValue: '{}',
+        reason: 'setup: InternalError: ReconAbort: driveTo /삼성화재/홈 실패 (code=500)',
+      },
+    }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    const status = cellsOf(el, 0)[0]!
+    expect(status.text()).toBe('실패')
+    expect(status.find('.badge--fail').exists()).toBe(true)
+  })
+
+  // 요약(state 집계)은 그 실패를 성공으로 센다 — 행 라벨만 고친 화면이라 이
+  // 어긋남이 남는다. 조용히 두면 운영자가 화면 버그로 오독하므로 밝혀야 한다.
+  it('요약의 성공 수에 실패가 섞여 있으면 안내한다', async () => {
+    listMock.mockResolvedValue([{ ...rows()[1], result: { success: false, status: 500 } }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    const note = el.findAll('.state-note').map(n => n.text()).join(' ')
+    expect(note).toContain('실패한 작업이 1건')
+    expect(note).toContain('성공 1')
+  })
+
+  it('성공한 done 작업은 그대로 성공으로 표시한다', async () => {
+    listMock.mockResolvedValue([{ ...rows()[1], result: { success: true, status: 200, resultValue: '{}' } }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    expect(cellsOf(el, 0)[0]!.text()).toBe('성공')
+    expect(el.findAll('.state-note').length).toBe(0)
+  })
+
   it('서버가 준 claim 순서를 고정한다 — 헤더를 눌러도 정렬되지 않는다', async () => {
     const el = await mountSuspended(WorkStatusPage)
     const before = el.findAll('.dt-row').map(r => r.findAll('.dt-td')[COL_COMPANY]!.text())

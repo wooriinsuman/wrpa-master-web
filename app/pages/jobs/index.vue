@@ -4,7 +4,7 @@ import type { components } from '#shared/types/api'
 import type { Column } from '~/components/WDataTable.vue'
 import { WORK_LIST_LIMIT, toSummaryParams, type WorkListParams, type WorkSummaryParams } from '~/composables/useWorks'
 import { isStatusCell, type StatusCell } from '~/utils/status'
-import { workStateKind } from '~/utils/dashboardState'
+import { workStatusCell, WORK_STATE_FILTER_LABEL } from '~/utils/workStatus'
 import { waitReasonCell } from '~/utils/waitReason'
 import { categoryLabel } from '~/utils/category'
 import { shortId } from '~/utils/idLabel'
@@ -113,9 +113,6 @@ const summaryItems = computed<string[]>(() => {
   ]
 })
 
-const STATE_LABEL: Record<string, string> = {
-  pending: '대기', started: '실행중', done: '성공', failed: '실패', cancel: '취소',
-}
 const CREATE_TYPE_LABEL: Record<string, string> = {
   Scheduled: '예약', Manual: '수동', Immediately: '즉시',
 }
@@ -186,7 +183,9 @@ function workerOptionLabel(w: WorkerView): string {
 const rows = computed<WorkRow[]>(() => {
   const list: WorkRow[] = (data.value ?? []).map(w => ({
     id: w.id,
-    status: { label: STATE_LABEL[w.state] ?? w.state, kind: workStateKind(w.state) },
+    // 상태는 state만으로 정해지지 않는다 — 워커가 실패를 보고해도 백엔드는
+    // done으로 저장한다(workStatus.ts 주석). 결과 본문을 함께 넘겨 판정한다.
+    status: workStatusCell(w.state, w.result),
     waitReason: waitReasonCell(w.waitReason, w.state) ?? '—',
     company: w.company,
     account: accountLabel(w),
@@ -213,6 +212,12 @@ const rows = computed<WorkRow[]>(() => {
     r.tasks, r.category, r.status.label,
   ].some(x => String(x).toLowerCase().includes(q)))
 })
+
+// 지금 표에 보이는 행 중 "결과는 왔지만 실패"인 건수. 요약 스트립의 성공 수에
+// 섞여 있는 값이라, 그 어긋남을 알리는 안내문(아래 state-note)의 트리거다.
+const failedInDone = computed(() =>
+  rows.value.filter(r => r._src.state === 'done' && r.status.kind === 'fail').length,
+)
 
 // 날짜는 항상 있으니 필터로 세지 않는다. 나머지 조건이 하나라도 걸려 있으면
 // 0건은 "선생성이 안 됐다"가 아니라 "조건에 맞는 게 없다"는 뜻이다 — 지정 문구를
@@ -338,8 +343,10 @@ const resultText = computed(() =>
           <option value="">상태 전체</option>
           <option value="pending">대기</option>
           <option value="started">실행중</option>
-          <option value="done">성공</option>
-          <option value="failed">실패</option>
+          <!-- 필터 값은 백엔드 state 그대로다. done은 성공이 아니라 "결과가
+               도착함"이고 실패 결과도 여기 들어간다 — 라벨로 그 사실을 드러낸다. -->
+          <option value="done">완료</option>
+          <option value="failed">실패(타임아웃)</option>
           <option value="cancel">취소</option>
         </select>
         <select v-model="filters.createType" class="hd-field f-create" aria-label="생성구분">
@@ -371,7 +378,16 @@ const resultText = computed(() =>
          좁혀 표가 비거나 줄어도 요약 숫자는 그 날 전체를 그대로 보여준다. 이 차이를
          모르면 "요약엔 있는데 표엔 없다"를 버그로 오독한다. -->
     <p v-if="filters.state && summaryItems.length" class="state-note">
-      위 요약은 상태 필터와 무관하게 이 날짜 전체를 셉니다 — 표는 "{{ STATE_LABEL[filters.state] ?? filters.state }}" 상태만 보여줍니다.
+      위 요약은 상태 필터와 무관하게 이 날짜 전체를 셉니다 — 표는 "{{ WORK_STATE_FILTER_LABEL[filters.state] ?? filters.state }}" 상태만 보여줍니다.
+    </p>
+
+    <!-- 요약의 "성공/실패"는 백엔드 집계(state)라 행 라벨과 기준이 다르다. 워커가
+         실패를 보고한 작업도 서버는 done으로 세므로 요약의 성공 수에 섞여 있다.
+         행 라벨만 고친 화면이라, 그 차이를 여기서 밝히지 않으면 운영자는 "성공
+         3인데 표에는 실패가 있다"를 화면 버그로 오독한다. -->
+    <p v-if="failedInDone" class="state-note">
+      이 목록에 실패한 작업이 {{ failedInDone }}건 있습니다 — 서버는 결과가 도착한 작업을 성공/실패 구분 없이 "완료"로 집계하므로,
+      위 요약의 "성공 {{ sum?.done ?? 0 }}"에는 이 실패 건이 포함돼 있고 "실패"는 타임아웃만 셉니다.
     </p>
 
     <p v-if="truncated" class="trunc">
