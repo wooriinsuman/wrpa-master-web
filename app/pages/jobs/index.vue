@@ -25,7 +25,9 @@ interface WorkRow {
   category: string
   closingMonth: string
   runTime: string
-  tasks: string
+  // 배열 그대로 넘긴다 — 쉼표로 join하면 한 줄이 되어 셀 폭에서 말줄임된다.
+  // WDataTable의 kind:'tags'가 개별 태그로 줄바꿈해 전부 보여준다.
+  tasks: string[]
   priority: number
   // pending이면 자격 워커 후보 수(0이면 사고 배지), 아니면 배정된 워커 이름.
   worker: StatusCell | string
@@ -193,7 +195,7 @@ const rows = computed<WorkRow[]>(() => {
     category: w.category ? categoryLabel(w.category, dataTypeNames.value) : '—',
     closingMonth: w.closingMonth || '—',
     runTime: w.workTime || '—',
-    tasks: (w.tasks ?? []).join(', ') || '—',
+    tasks: w.tasks ?? [],
     priority: w.priority ?? 0,
     worker: workerCell(w),
     workerId: w.workerId ?? '',
@@ -209,7 +211,9 @@ const rows = computed<WorkRow[]>(() => {
   return list.filter(r => [
     r.company, r.account, r.accountId,
     isStatusCell(r.worker) ? r.worker.label : r.worker, r.workerId,
-    r.tasks, r.category, r.status.label,
+    // 태그 배열은 공백으로 잇는다 — String(배열)은 "a,b"라서 화면에 보이는 대로
+    // 띄어 쓴 검색어("a b")가 걸리지 않는다.
+    r.tasks.join(' '), r.category, r.status.label,
   ].some(x => String(x).toLowerCase().includes(q)))
 })
 
@@ -227,21 +231,29 @@ const narrowed = computed(() => {
   return !!(search.value.trim() || Object.values(rest).some(v => v))
 })
 
-// 서버가 준 순서가 곧 claim 소진 순서(priority DESC, seq)다 — 헤더 클릭 정렬로
-// 흐트러지면 "이 순서대로 소진된다"는 화면의 의미 자체가 사라진다.
+// 순서는 v1 작업현황(wrpa-web /rpa/states)의 배열을 따른다: 생성구분 → 무엇을
+// 하는 작업인지(보험사·계정·카테고리·tasks) → 언제(업적월·실행시각) → 누가·언제쯤
+// (워커·우선순위) → 결과(상태·대기사유·시도). 그 화면을 쓰던 운영자가 눈을 옮기지
+// 않아도 되게 하는 게 목적이라, 상태는 앞이 아니라 결과 묶음에 둔다.
+//
+// 정렬은 전 컬럼에서 끈다. 서버가 준 순서가 곧 claim 소진 순서(priority DESC,
+// seq)라 헤더 클릭 정렬로 흐트러지면 "이 순서대로 소진된다"는 화면의 의미 자체가
+// 사라진다 — 컬럼을 재배치해도 이 이유는 그대로다.
 const columns: Column[] = [
-  { key: 'status', label: '상태', kind: 'status', sortable: false },
-  { key: 'waitReason', label: '대기사유', kind: 'status', sortable: false },
+  { key: 'createType', label: '생성', kind: 'muted', sortable: false },
   { key: 'company', label: '보험사', kind: 'mono', sortable: false },
   { key: 'account', label: '계정', kind: 'text', sortable: false },
   { key: 'category', label: '카테고리', kind: 'text', sortable: false },
+  // tags + weight 2: 말줄임 대신 줄바꿈해 태스크 이름을 전부 보여준다. 폭을 두 배로
+  // 주지 않으면 태그가 한 줄에 하나씩 접혀 행이 쓸데없이 높아진다.
+  { key: 'tasks', label: 'tasks', kind: 'tags', weight: 2, sortable: false },
   { key: 'closingMonth', label: '업적월', kind: 'mono', sortable: false },
   { key: 'runTime', label: '실행시각', kind: 'mono', sortable: false },
-  { key: 'tasks', label: 'tasks', kind: 'text', sortable: false },
-  { key: 'priority', label: '우선순위', kind: 'mono', sortable: false },
   { key: 'worker', label: '워커', kind: 'mono', sortable: false },
+  { key: 'priority', label: '우선순위', kind: 'mono', sortable: false },
+  { key: 'status', label: '상태', kind: 'status', sortable: false },
+  { key: 'waitReason', label: '대기사유', kind: 'status', sortable: false },
   { key: 'retried', label: '시도', kind: 'mono', sortable: false },
-  { key: 'createType', label: '생성', kind: 'muted', sortable: false },
 ]
 
 // priority 인라인 수정: pending만 (백엔드가 409로 방어하지만 UI에서도 막는다)
@@ -276,26 +288,73 @@ async function savePriority(w: WorkView) {
   }
 }
 
-// 취소 확인. 네이티브 confirm() 대신 DS의 WConfirm을 쓴다 — 다이얼로그를 닫으면
-// (@confirm이 오지 않으므로) 작업은 그대로 남는다.
-const cancelOpen = ref(false)
-const cancelTarget = ref<WorkView | null>(null)
-function askCancel(w: WorkView) {
-  cancelTarget.value = w
-  cancelOpen.value = true
+// 행 액션은 상태를 따라간다. 백엔드가 받아 주는 상태 조합을 그대로 옮긴 것이다:
+//   pending  → 우선순위 조정 + 취소   (PATCH priority는 pending만, POST cancel)
+//   started  → 중지                   (같은 POST cancel — 실행 중인 걸 "취소"라
+//                                      부르면 예약을 무르는 것으로 읽힌다)
+//   done/failed/cancel → 재시작       (POST restart)
+// 셋 다 SYSTEM 전용 엔드포인트라 authStore.isSystem으로 한 번 더 게이팅한다.
+type RowAction = 'cancel' | 'stop' | 'restart' | null
+function rowAction(state: string): RowAction {
+  if (state === 'pending') return 'cancel'
+  if (state === 'started') return 'stop'
+  // 성공한 작업도 재시작을 연다(v1과 같다) — 백엔드도 done/cancel/failed를 모두 받는다.
+  if (state === 'done' || state === 'failed' || state === 'cancel') return 'restart'
+  return null
 }
-async function confirmCancel() {
-  const w = cancelTarget.value
-  cancelTarget.value = null
+
+// 확인 문구는 액션마다 다르다. 특히 재시작은 성공한 작업에도 열려 있어, 결과
+// 파일이 지워지고 시도 횟수가 오른다는 사실을 누르기 전에 알려야 한다.
+const ACTION_COPY: Record<Exclude<RowAction, null>, {
+  button: string; title: string; message: string; confirm: string
+}> = {
+  cancel: {
+    button: '취소',
+    title: '이 작업을 취소할까요?',
+    message: '대기 중인 작업이 취소 상태로 바뀝니다. 되돌리려면 다시 실행해야 합니다.',
+    confirm: '작업 취소',
+  },
+  stop: {
+    button: '중지',
+    title: '실행 중인 작업을 중지할까요?',
+    message: '워커는 다음 상태 확인에서 중지 신호를 보고 멈춥니다 — 즉시 끊기지는 않습니다.',
+    confirm: '작업 중지',
+  },
+  restart: {
+    button: '재시작',
+    title: '이 작업을 다시 실행할까요?',
+    message: '같은 작업이 대기 상태로 되돌아갑니다. 이전 실행의 결과 파일과 스크린샷은 지워지고 시도 횟수가 1 올라갑니다.',
+    confirm: '작업 재시작',
+  },
+}
+
+// 확인 다이얼로그. 네이티브 confirm() 대신 DS의 WConfirm을 쓴다 — 다이얼로그를
+// 닫으면 (@confirm이 오지 않으므로) 작업은 그대로 남는다.
+const confirmOpen = ref(false)
+const actionTarget = ref<WorkView | null>(null)
+const actionKind = ref<Exclude<RowAction, null>>('cancel')
+const actionCopy = computed(() => ACTION_COPY[actionKind.value])
+
+function askAction(w: WorkView, kind: Exclude<RowAction, null>) {
+  actionTarget.value = w
+  actionKind.value = kind
+  confirmOpen.value = true
+}
+
+async function confirmAction() {
+  const w = actionTarget.value
+  const kind = actionKind.value
+  actionTarget.value = null
   if (!w) return
+  const restarting = kind === 'restart'
   try {
-    await works.cancel(w.id)
-    push('취소되었습니다.', 'success')
-    // cancel은 멱등이라 200이 "정말 취소됐다"를 뜻하지 않는다 — 목록을 다시 읽어
-    // 실제 상태를 보여준다.
+    await (restarting ? works.restart(w.id) : works.cancel(w.id))
+    push(restarting ? '재시작했습니다.' : '중지 요청을 보냈습니다.', 'success')
+    // cancel/restart 모두 멱등이라 200이 "정말 그렇게 됐다"를 뜻하지 않는다 —
+    // 목록을 다시 읽어 실제 상태를 보여준다.
     await refreshAll()
   } catch (err: any) {
-    push(extractApiError(err, '취소에 실패했습니다.'), 'error')
+    push(extractApiError(err, restarting ? '재시작에 실패했습니다.' : '중지에 실패했습니다.'), 'error')
   }
 }
 
@@ -395,9 +454,10 @@ const resultText = computed(() =>
       필터로 범위를 좁혀 보세요.
     </p>
 
-    <!-- 컬럼이 12개라 기본 680px로는 어떤 폭에서도 스크롤 대신 말줄임만 난다. -->
+    <!-- 컬럼이 12개라 기본 680px로는 어떤 폭에서도 스크롤 대신 말줄임만 난다.
+         tasks가 2배 폭을 가져가므로 1400으로는 나머지 칸이 다시 좁아진다. -->
     <WDataTable
-      v-if="rows.length" :columns="columns" :rows="rows" :actions-width="190" :min-width="1400"
+      v-if="rows.length" :columns="columns" :rows="rows" :actions-width="190" :min-width="1500"
       row-clickable @row-click="openResult"
     >
       <template #cell-waitReason="{ row }">
@@ -413,14 +473,20 @@ const resultText = computed(() =>
         <span v-else :title="(row as WorkRow).workerId || undefined">{{ row.worker }}</span>
       </template>
       <template #actions="{ row }">
-        <template v-if="authStore.isSystem && (row as WorkRow)._src.state === 'pending'">
+        <template v-if="authStore.isSystem && rowAction((row as WorkRow)._src.state)">
+          <!-- 우선순위는 pending에서만 조정할 수 있다(백엔드가 409로 막는다). -->
           <input
+            v-if="(row as WorkRow)._src.state === 'pending'"
             type="number" class="mono pr-input"
             :value="priorityDraft((row as WorkRow)._src)"
             @input="onPriorityInput((row as WorkRow)._src, $event)"
             @change="savePriority((row as WorkRow)._src)"
           />
-          <button class="act act--danger" @click="askCancel((row as WorkRow)._src)">취소</button>
+          <!-- 재시작은 되돌리는 동작이 아니라 다시 굴리는 동작이라 danger로 칠하지 않는다. -->
+          <button
+            class="act" :class="rowAction((row as WorkRow)._src.state) === 'restart' ? 'act--ghost' : 'act--danger'"
+            @click="askAction((row as WorkRow)._src, rowAction((row as WorkRow)._src.state)!)"
+          >{{ ACTION_COPY[rowAction((row as WorkRow)._src.state)!].button }}</button>
         </template>
         <span v-else class="muted">—</span>
       </template>
@@ -439,11 +505,11 @@ const resultText = computed(() =>
     <!-- 확인 버튼 라벨을 '취소'로 두면 두 버튼이 모두 '취소'가 돼 어느 쪽이
          작업을 취소하는지 알 수 없다 — 닫기/작업 취소로 갈라 놓는다. -->
     <WConfirm
-      v-model:open="cancelOpen"
-      title="이 작업을 취소할까요?"
-      message="대기 중이거나 실행 중인 작업이 취소 상태로 바뀝니다. 되돌리려면 다시 실행해야 합니다."
-      confirm-label="작업 취소" cancel-label="닫기"
-      @confirm="confirmCancel"
+      v-model:open="confirmOpen"
+      :title="actionCopy.title" :message="actionCopy.message"
+      :confirm-label="actionCopy.confirm" cancel-label="닫기"
+      :danger="actionKind !== 'restart'"
+      @confirm="confirmAction"
     />
 
     <WDrawer v-model:open="enqueueOpen" title="작업 실행" description="보험사 코드와 태스크를 입력해 작업을 실행하세요.">

@@ -46,7 +46,7 @@ function clean(p: WorkListParams | WorkSummaryParams): Record<string, string | n
   ) as Record<string, string | number>
 }
 
-// setPriority/cancel은 SYSTEM 전용 엔드포인트다 — 호출부에서 권한을 게이팅한다.
+// setPriority/cancel/restart는 SYSTEM 전용 엔드포인트다 — 호출부에서 권한을 게이팅한다.
 export function useWorks() {
   const api = useApi()
   return {
@@ -59,9 +59,12 @@ export function useWorks() {
     // cancel/restart는 멱등이다 — 이미 끝난 work이나 없는 id에도 200 + { result }를
     // 돌려준다. 응답으로 존재 여부를 구분할 수 없다는 뜻이므로 화면은 성공 토스트
     // 뒤에 반드시 목록을 다시 읽어 실제 상태를 확인해야 한다.
-    // (POST /works/{id}/restart도 같은 규약으로 문서화돼 있지만 아직 화면이 없어
-    //  래핑하지 않는다 — 쓰는 곳이 생길 때 추가한다.)
     cancel: (workId: string) =>
       api<WorkActionResponse>(`/works/${workId}/cancel`, { method: 'POST' }),
+    // 종료된(done/cancel/failed) work을 같은 id로 pending에 되돌린다 —
+    // retried_count++, files/screenshots 초기화. 진행 중인 work에는 아무 효과가
+    // 없고 그때도 200이 온다(cancel과 같은 멱등 규약).
+    restart: (workId: string) =>
+      api<WorkActionResponse>(`/works/${workId}/restart`, { method: 'POST' }),
   }
 }

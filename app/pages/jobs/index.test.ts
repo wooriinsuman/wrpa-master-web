@@ -9,19 +9,20 @@
 // 여기에는 "한 번 그려진 화면이 무엇을 보여주는가"만 넣는다.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
-import { flushPromises } from '@vue/test-utils'
+import { flushPromises, type DOMWrapper } from '@vue/test-utils'
 import { ref, nextTick } from 'vue'
 import WorkStatusPage from './index.vue'
 import { useAuthStore } from '~/stores/auth'
 
 const {
-  listMock, summaryMock, setPriorityMock, cancelMock, workersListMock, insurersListMock,
-  accountsListMock,
+  listMock, summaryMock, setPriorityMock, cancelMock, restartMock, workersListMock,
+  insurersListMock, accountsListMock,
 } = vi.hoisted(() => ({
   listMock: vi.fn(),
   summaryMock: vi.fn(),
   setPriorityMock: vi.fn(),
   cancelMock: vi.fn(),
+  restartMock: vi.fn(),
   workersListMock: vi.fn(),
   insurersListMock: vi.fn(),
   accountsListMock: vi.fn(),
@@ -33,6 +34,7 @@ mockNuxtImport('useWorks', () => () => ({
   enqueue: vi.fn(),
   setPriority: setPriorityMock,
   cancel: cancelMock,
+  restart: restartMock,
 }))
 // 실제 useWorkers().list()는 WorkerView[] 배열을 반환한다({ values } 봉투가 아니다).
 mockNuxtImport('useWorkers', () => () => ({ list: workersListMock }))
@@ -48,12 +50,16 @@ mockNuxtImport('useToast', () => () => ({ toasts: ref([]), push: vi.fn() }))
 
 const KEYS = ['works', 'works-summary', 'works-workers', 'works-accounts', 'works-insurers', 'works-datatypes']
 
-// 컬럼 순서: 상태·대기사유·보험사·계정·카테고리·업적월·실행시각·tasks·우선순위·워커·시도·생성
-const COL_COMPANY = 2
-const COL_ACCOUNT = 3
+// 컬럼 순서(v1 작업현황 배열): 생성·보험사·계정·카테고리·tasks·업적월·실행시각·
+// 워커·우선순위·상태·대기사유·시도
+const COL_CREATE = 0
+const COL_COMPANY = 1
+const COL_ACCOUNT = 2
+const COL_TASKS = 4
+const COL_WORKER = 7
 const COL_PRIORITY = 8
-const COL_WAIT = 1
-const COL_WORKER = 9
+const COL_STATUS = 9
+const COL_WAIT = 10
 const LIMIT = 1000
 
 // 운영 화면에서 실제로 새던 값들: 계정·워커가 36자 uuid로 그려졌다.
@@ -81,8 +87,13 @@ function rows() {
   ]
 }
 
-function cellsOf(el: any, rowIdx: number) {
+function cellsOf(el: any, rowIdx: number): DOMWrapper<Element>[] {
   return el.findAll('.dt-row')[rowIdx]!.findAll('.dt-td')
+}
+
+// 액션 칸은 데이터 칸 뒤에 붙는 마지막 .dt-td다.
+function actionsOf(el: any, rowIdx: number): DOMWrapper<Element> {
+  return el.findAll('.dt-row')[rowIdx]!.find('.dt-actions')
 }
 
 beforeEach(() => {
@@ -105,6 +116,44 @@ afterEach(() => {
 })
 
 describe('작업 현황', () => {
+  // v1 작업현황을 쓰던 운영자가 눈을 옮기지 않아도 되도록 그 배열을 따른다 —
+  // 특히 상태는 맨 앞이 아니라 결과 묶음(상태·대기사유·시도)에 있어야 한다.
+  it('컬럼을 v1 작업현황 순서로 보여준다 — 상태는 결과 묶음에 있다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    expect(el.findAll('.dt-th').map(t => t.text())).toEqual([
+      '생성', '보험사', '계정', '카테고리', 'tasks', '업적월', '실행시각',
+      '워커', '우선순위', '상태', '대기사유', '시도', '액션',
+    ])
+  })
+
+  // tasks를 쉼표로 이어 붙이면 한 줄이 되어 셀 폭에서 말줄임된다 — 태스크 이름이
+  // 길어 정작 어떤 작업인지 못 읽는 게 이 화면의 원래 불만이었다.
+  it('tasks는 잘리지 않고 개별 태그로 전부 보여준다', async () => {
+    listMock.mockResolvedValue([{
+      ...rows()[0],
+      tasks: ['contract_list_all_a', 'contract_list_all_b', 'contract_detail_c'],
+    }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    const cell = cellsOf(el, 0)[COL_TASKS]!
+
+    expect(cell.findAll('.dt-tag').map(t => t.text())).toEqual([
+      'contract_list_all_a', 'contract_list_all_b', 'contract_detail_c',
+    ])
+    // 말줄임을 부르는 건 join된 한 줄이다 — 쉼표로 이어 붙이지 않는다.
+    expect(cell.text()).not.toContain(',')
+  })
+
+  it('tasks가 비면 태그 대신 빈 표시를 낸다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    expect(cellsOf(el, 1)[COL_TASKS]!.text()).toBe('—')
+  })
+
+  it('생성 구분을 한국어 라벨로 첫 칸에 보여준다', async () => {
+    const el = await mountSuspended(WorkStatusPage)
+    expect(cellsOf(el, 0)[COL_CREATE]!.text()).toBe('예약')
+  })
+
   it('자격 워커가 0인 대기 작업은 워커 칸을 사고(fail)로 표시한다', async () => {
     const el = await mountSuspended(WorkStatusPage)
     const worker = cellsOf(el, 0)[COL_WORKER]!
@@ -256,7 +305,7 @@ describe('작업 현황', () => {
     summaryMock.mockResolvedValue({ pending: 0, started: 0, done: 0, failed: 0, cancel: 1, businessDay: 3 })
     clearNuxtData(KEYS)
     const el = await mountSuspended(WorkStatusPage)
-    const status = cellsOf(el, 0)[0]!
+    const status = cellsOf(el, 0)[COL_STATUS]!
     expect(status.text()).toBe('취소')
     expect(status.find('.badge--fail').exists()).toBe(false)
     expect(el.find('.sum').text()).toContain('실패 0')
@@ -275,7 +324,7 @@ describe('작업 현황', () => {
     }])
     clearNuxtData(KEYS)
     const el = await mountSuspended(WorkStatusPage)
-    const status = cellsOf(el, 0)[0]!
+    const status = cellsOf(el, 0)[COL_STATUS]!
     expect(status.text()).toBe('실패')
     expect(status.find('.badge--fail').exists()).toBe(true)
   })
@@ -295,7 +344,7 @@ describe('작업 현황', () => {
     listMock.mockResolvedValue([{ ...rows()[1], result: { success: true, status: 200, resultValue: '{}' } }])
     clearNuxtData(KEYS)
     const el = await mountSuspended(WorkStatusPage)
-    expect(cellsOf(el, 0)[0]!.text()).toBe('성공')
+    expect(cellsOf(el, 0)[COL_STATUS]!.text()).toBe('성공')
     expect(el.findAll('.state-note').length).toBe(0)
   })
 
@@ -308,12 +357,83 @@ describe('작업 현황', () => {
     expect(before).toEqual(['samsung_property', 'hyundai_marine'])
   })
 
+  // 우선순위는 pending에서만 조정할 수 있다(PATCH는 그 외 상태에 409를 준다).
+  // 끝난 행에도 입력칸을 내면 운영자는 저장할 때까지 거절을 알 수 없다.
   it('SYSTEM에게는 대기 행에만 우선순위 입력과 취소 버튼을 낸다', async () => {
     const el = await mountSuspended(WorkStatusPage)
     const inputs = el.findAll('.dt-row input[type="number"]')
     expect(inputs.length).toBe(1)
     expect((inputs[0]!.element as HTMLInputElement).value).toBe('10')
+    // 대기 행에만 취소가 붙고, 끝난 행(w2)은 재시작이라 취소가 아니다.
     expect(el.findAll('.dt-row button').filter(b => b.text() === '취소').length).toBe(1)
+    expect(actionsOf(el, 1).find('input[type="number"]').exists()).toBe(false)
+  })
+
+  // 액션이 상태를 안 따라가면 운영자는 끝난 작업을 되살릴 방법이 없고(v1에는
+  // 있었다), 실행 중인 작업에 '취소'라 쓰여 예약을 무르는 것으로 읽힌다.
+  it.each([
+    ['pending', '취소'],
+    ['started', '중지'],
+    ['done', '재시작'],
+    ['failed', '재시작'],
+    ['cancel', '재시작'],
+  ])('%s 작업의 액션 버튼은 "%s"다', async (state, label) => {
+    listMock.mockResolvedValue([{ ...rows()[1], state }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    expect(actionsOf(el, 0).findAll('button').map(b => b.text())).toEqual([label])
+  })
+
+  it('재시작도 확인 다이얼로그를 거친다 — 닫으면 재시작되지 않는다', async () => {
+    listMock.mockResolvedValue([{ ...rows()[1], state: 'failed' }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    await actionsOf(el, 0).find('button').trigger('click')
+
+    // 성공한 작업에도 열려 있는 버튼이라, 결과물이 지워진다는 사실을 누르기
+    // 전에 알려야 한다.
+    expect(document.body.textContent).toContain('이 작업을 다시 실행할까요?')
+    expect(document.body.textContent).toContain('지워지고')
+    expect(restartMock).not.toHaveBeenCalled()
+
+    const foot = [...document.body.querySelectorAll('.cf-foot button')] as HTMLButtonElement[]
+    foot.find(b => b.textContent?.trim() === '닫기')!.click()
+    await flushPromises()
+    expect(restartMock).not.toHaveBeenCalled()
+  })
+
+  it('확인 다이얼로그에서 확정하면 재시작하고 목록을 다시 읽는다', async () => {
+    restartMock.mockResolvedValue({ result: 'restarted' })
+    listMock.mockResolvedValue([{ ...rows()[1], state: 'failed' }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    const before = listMock.mock.calls.length
+    await actionsOf(el, 0).find('button').trigger('click')
+    const foot = [...document.body.querySelectorAll('.cf-foot button')] as HTMLButtonElement[]
+    foot.find(b => b.textContent?.trim() === '작업 재시작')!.click()
+    await flushPromises()
+
+    expect(restartMock).toHaveBeenCalledWith('w2')
+    // restart는 멱등이라 200이 "정말 재시작됐다"를 뜻하지 않는다 — 목록을 다시
+    // 읽지 않으면 화면은 계속 '실패'를 보여준다.
+    expect(listMock.mock.calls.length).toBeGreaterThan(before)
+  })
+
+  // 실행 중인 작업의 중지도 취소 엔드포인트를 쓰지만, 문구까지 '취소'로 두면
+  // 워커가 즉시 멈추는 것으로 읽힌다(실제로는 다음 상태 확인에서 멈춘다).
+  it('실행 중 작업의 중지는 cancel을 부르되 즉시 끊기지 않는다고 알린다', async () => {
+    cancelMock.mockResolvedValue({ result: 'cancelled' })
+    listMock.mockResolvedValue([{ ...rows()[1], state: 'started' }])
+    clearNuxtData(KEYS)
+    const el = await mountSuspended(WorkStatusPage)
+    await actionsOf(el, 0).find('button').trigger('click')
+    expect(document.body.textContent).toContain('즉시 끊기지는 않습니다')
+
+    const foot = [...document.body.querySelectorAll('.cf-foot button')] as HTMLButtonElement[]
+    foot.find(b => b.textContent?.trim() === '작업 중지')!.click()
+    await flushPromises()
+    expect(cancelMock).toHaveBeenCalledWith('w2')
+    expect(restartMock).not.toHaveBeenCalled()
   })
 
   // 게이트는 isSystem(level >= 30)이라 ADMIN(20)은 논리적으로 빠지지만, 경계값이
@@ -448,7 +568,7 @@ describe('작업 현황', () => {
 
   it('12컬럼이 말줄임되지 않도록 표에 넓은 min-width를 준다', async () => {
     const el = await mountSuspended(WorkStatusPage)
-    expect(el.find('.dt-wrap').attributes('style')).toContain('--dt-min-w: 1400px')
+    expect(el.find('.dt-wrap').attributes('style')).toContain('--dt-min-w: 1500px')
   })
 
   it('상한 미만이면 잘림 배너를 내지 않는다', async () => {
@@ -487,6 +607,12 @@ describe('작업 현황', () => {
     expect(el.findAll('.dt-row').length).toBe(1)
     await search.setValue('test-worker-001')
     expect(el.findAll('.dt-row').length).toBe(1)
+
+    // tasks가 배열이 되면서 String(배열)은 "a,b"가 된다 — 화면에 보이는 대로
+    // 띄어 쓴 검색어도 걸려야 한다.
+    await search.setValue('contract_list_all_a')
+    expect(el.findAll('.dt-row').length).toBe(1)
+    expect(cellsOf(el, 0)[COL_COMPANY]!.text()).toBe('samsung_property')
   })
 
   it('검색으로 0건이면 선생성 안내가 아니라 조건 안내를 낸다', async () => {
